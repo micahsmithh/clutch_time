@@ -114,10 +114,11 @@ class SimulationScreen(QWidget):
 
     #update selected team (called from start)
     def update_player_team(self, player_team):
-        self.player_team = player_team
+        self.player_team = teams.find_teams_by_full_name(player_team)
+
         #gonna have to update text labels
-    def update_cpu_team(self, player_team):
-        self.cpu_team = player_team
+    def update_cpu_team(self, cpu_team):
+        self.cpu_team = teams.find_teams_by_full_name(cpu_team)
         #gonna have to update text labels
 
 class MainWindow(QMainWindow):
