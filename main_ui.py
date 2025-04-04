@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout
 from PyQt6.QtGui import QFont, QPixmap
 from PyQt6.QtCore import Qt  
 import sys
@@ -41,14 +41,29 @@ class StartScreen(QWidget):
         start_button.setFont(QFont("Helvetica", 14))
         start_button.setStyleSheet("background-color: green; color: white; padding: 10px;")
         start_button.clicked.connect(self.start_sim)  #will start simulation
-        grid_layout.addWidget(start_button, 2, 0)
+        grid_layout.addWidget(start_button, 3, 0)
 
-        # Team Selection
+        #############################################################
+        # TEAM SELECTIONS
+        #############################################################
+
+        # Player's Team
+        player_team_widget = QWidget()
+        player_team_layout = QVBoxLayout()
+        player_team_layout.setSpacing(2) 
+
+        self.player_team_label = QLabel(" Select Your Team")
+        self.player_team_label.setFont(QFont("Helvetica", 14, QFont.Weight.Bold))
+        player_team_layout.addWidget(self.player_team_label)
+
         self.player_team_select = QComboBox()
-
         self.player_team_select.currentIndexChanged.connect(self.player_team_changed)
         self.player_team_select.setFont(QFont("Helvetica", 14))
-        grid_layout.addWidget(self.player_team_select, 1, 0)
+        player_team_layout.addWidget(self.player_team_select)
+
+        player_team_widget.setLayout(player_team_layout)
+        grid_layout.addWidget(player_team_widget, 2, 0)  #add to main widget
+
         
         # get full list of teams and show in selection box by team name
         teams_list = teams.get_teams()
@@ -57,27 +72,47 @@ class StartScreen(QWidget):
             self.player_team_select.addItem(team["full_name"])
 
         # CPU Selection
+        cpu_team_widget = QWidget()
+        cpu_team_layout = QVBoxLayout()
+        cpu_team_layout.setSpacing(1) 
+
+        self.cpu_team_label = QLabel(" Select CPU Team")
+        self.cpu_team_label.setFont(QFont("Helvetica", 14, QFont.Weight.Bold))
+        cpu_team_layout.addWidget(self.cpu_team_label)
+
         self.cpu_team_select = QComboBox()
 
         self.cpu_team_select.currentIndexChanged.connect(self.cpu_team_changed)
         self.cpu_team_select.setFont(QFont("Helvetica", 14))
-        grid_layout.addWidget(self.cpu_team_select, 1, 2)
+        cpu_team_layout.addWidget(self.cpu_team_select)
+
+        cpu_team_widget.setLayout(cpu_team_layout)
+        grid_layout.addWidget(cpu_team_widget, 2, 2)  #add to main widget
         
         # get full list of teams and show in selection box by team name
         for team in sorted_teams:
             self.cpu_team_select.addItem(team["full_name"])
 
 
+        
+
+        #############################################################
+        # QUIT BUTTON
+        #############################################################
+
         # Quit Button
         quit_button = QPushButton("Quit")
         quit_button.setFont(QFont("Helvetica", 14))
         quit_button.setStyleSheet("background-color: red; color: white; padding: 10px;")
         quit_button.clicked.connect(lambda: QApplication.quit())
-        grid_layout.addWidget(quit_button, 2, 2)
+        grid_layout.addWidget(quit_button, 3, 2)
 
     def start_sim(self):
         # Switch to index 1: SimulationScreen
         self.stacked_widget.setCurrentIndex(1)  
+
+        print(f"Player's Team = {self.simulation_screen.player_team}")
+        print(f"CPU's Team = {self.simulation_screen.cpu_team}")
 
     #selects player team
     def player_team_changed(self):
