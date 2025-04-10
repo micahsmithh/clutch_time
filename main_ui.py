@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox
 from PyQt6.QtGui import QFont, QPixmap
 from PyQt6.QtCore import Qt  
 import sys
@@ -92,6 +92,32 @@ class StartScreen(QWidget):
         # get full list of teams and show in selection box by team name
         for team in sorted_teams:
             self.cpu_team_select.addItem(team["full_name"])
+
+        #############################################################
+        # SELECT SCORES
+        #############################################################
+
+        # Player Score Selector
+        self.player_score_label = QLabel(" Select Your Score")
+        self.player_score_label.setFont(QFont("Helvetica", 12))
+        player_team_layout.addWidget(self.player_score_label)
+
+        self.player_score_box = QSpinBox()
+        self.player_score_box.setFont(QFont("Helvetica", 12))
+        self.player_score_box.setRange(0, 150)  #can select from 0 to 150
+        self.player_score_box.setValue(0)       #defaults to 0
+        player_team_layout.addWidget(self.player_score_box)
+        
+        # CPU Score Selector
+        self.cpu_score_label = QLabel(" Select CPU Score")
+        self.cpu_score_label.setFont(QFont("Helvetica", 12))
+        cpu_team_layout.addWidget(self.cpu_score_label)
+
+        self.cpu_score_box = QSpinBox()
+        self.cpu_score_box.setFont(QFont("Helvetica", 12))
+        self.cpu_score_box.setRange(0, 150)
+        self.cpu_score_box.setValue(0)
+        cpu_team_layout.addWidget(self.cpu_score_box)
 
 
         
