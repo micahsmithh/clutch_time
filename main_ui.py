@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox
-from PyQt6.QtGui import QFont, QPixmap
+from PyQt6.QtGui import QFont, QPixmap, QPainter
 from PyQt6.QtCore import Qt  
 import sys
 from nba_api.stats.endpoints import playercareerstats
@@ -139,6 +139,8 @@ class StartScreen(QWidget):
 
         print(f"Player's Team = {self.simulation_screen.player_team}")
         print(f"CPU's Team = {self.simulation_screen.cpu_team}")
+        print(f"Player's Score = {self.player_score_box.value()}")
+        print(f"CPU's Score = {self.cpu_score_box.value()}")
 
     #selects player team
     def player_team_changed(self):
@@ -153,6 +155,12 @@ class StartScreen(QWidget):
 class SimulationScreen(QWidget):
     def __init__(self, stacked_widget):
         super().__init__()
+
+        #setting background screen
+        self.background_pixmap = QPixmap("nba_images/basketball_court.jpg")
+
+
+
         self.stacked_widget = stacked_widget
 
         self.player_team = None
@@ -160,6 +168,11 @@ class SimulationScreen(QWidget):
 
         layout = QGridLayout()
         self.setLayout(layout)
+
+        
+
+
+
 
         label = QLabel("🏀 Welcome to the Simulation! 🏀")
         label.setFont(QFont("Helvetica", 30, QFont.Weight.Bold))
@@ -181,6 +194,10 @@ class SimulationScreen(QWidget):
     def update_cpu_team(self, cpu_team):
         self.cpu_team = teams.find_teams_by_full_name(cpu_team)
         #gonna have to update text labels
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.drawPixmap(self.rect(), self.background_pixmap)
 
 class MainWindow(QMainWindow):
     def __init__(self):
