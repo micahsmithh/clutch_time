@@ -2,11 +2,17 @@ import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QLineEdit
 from nba_api.stats.endpoints import playercareerstats
 from nba_api.stats.static import players
+from nba_api.stats.endpoints import PlayerClutchSplits
 
+# specify player by name
 class Player:
-    def __init__(self, player_id):
-        self.player_id = player_id
-        self.player_name = 
+    def __init__(self, player_name, df):
+        self.name = player_name
+        player_info = players.find_players_by_full_name(player_name)
+        self.id = player_info[0]['id']
+        self.clutch_stats = df[df['PLAYER_ID'] == self.id]
+
+        print(self.clutch_stats[['PLAYER_NAME', 'FG_PCT', 'FG3_PCT']])
 
 
 

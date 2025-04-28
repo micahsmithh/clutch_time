@@ -1,74 +1,27 @@
+from nba_api.stats.endpoints import playergamelog
 import pandas as pd
-from nba_api.stats.endpoints import playercareerstats, commonplayerinfo
-from nba_api.stats.static import players
-from datetime import datetime
 
-# Nikola Jokić
-player = players.find_players_by_full_name("Lebron James")
+# Function to fetch minutes played for a single player in the current season
+def get_player_minutes(player_name='Nikola Jokic', season='2023-24'):
+    # Fetch player game logs (season type is Regular Season)
+    player_game_log = playergamelog.PlayerGameLog(player_name=player_name, season=season, season_type='Regular Season')
+    
+    # Extract the data as a DataFrame
+    df = player_game_log.get_data_frames()[0]
+    
+    # Filter relevant columns: GAME_DATE and MINUTES (MIN)
+    df_filtered = df[['GAME_DATE', 'MIN']]
+    
+    # Calculate the total minutes played in the season
+    total_minutes = df_filtered['MIN'].sum()
+    
+    return total_minutes, df_filtered
 
-#extra id
-player_id = player[0]['id']
+# Fetch Nikola Jokić's minutes played in the 2023-24 season
+total_minutes, game_log_df = get_player_minutes()
 
-career = playercareerstats.PlayerCareerStats(player_id=player_id) 
+# Show total minutes played
+print(f"Total minutes played by Nikola Jokić: {total_minutes} minutes")
 
-# get player info for Jokic
-player_info = commonplayerinfo.CommonPlayerInfo(player_id=player_id)
-player_name = player_info.get_data_frames()[0]['DISPLAY_FIRST_LAST'][0]
-
-
-dob_str = player_info.get_data_frames()[0]['BIRTHDATE'][0]  # Format: '1995-02-19T00:00:00'
-
-# Convert DOB string to datetime object
-dob = datetime.strptime(dob_str.split('T')[0], "%Y-%m-%d")
-
-# Calculate age
-today = datetime.today()
-player_age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-
-
-print(f"{player_name}'s age = {player_age}")
-
-# pandas data frames (optional: pip install pandas)
-career.get_data_frames()[0]
-
-# json
-career.get_json()
-
-# dictionary
-career.get_dict()
-
-df = career.get_data_frames()[0]
-
-# Display the first few rows
-#print(df.head())
-
-latest_season = df.iloc[-1]
-
-
-# Access specific columns
-#print(latest_season[['SEASON_ID', 'PPG']])  # Example: Points, Assists, Rebounds per season
-
-rookie = df.iloc[0]
-latest = df.iloc[-1]
-
-rookie_ppg = rookie['PTS'] / rookie['GP']
-rookie_apg = rookie['AST'] / rookie['GP']
-rookie_rpg = rookie['REB'] / rookie['GP']
-
-latest_ppg = latest['PTS'] / latest['GP']
-latest_apg = latest['AST'] / latest['GP']
-latest_rpg = latest['REB'] / latest['GP']
-
-
-
-print(f"{player_name}'s Rookie Season ({rookie['SEASON_ID']}): {rookie_ppg:.1f} PPG, {rookie_apg:.1f} APG, {rookie_rpg:.1f} RPG")
-print(f"{player_name}'s Latest Season ({latest['SEASON_ID']}): {latest_ppg:.1f} PPG, {latest_apg:.1f} APG, {latest_rpg:.1f} RPG")
-
-
-
-#print(f"Rookie Year ({rookie['SEASON_ID']}): {rookie['PTS'] } PPG, {rookie['AST']} APG, {rookie['REB']} RPG")
-#print(f"Latest Year ({latest['SEASON_ID']}): {latest['PTS']} PPG, {latest['AST']} APG, {latest['REB']} RPG")
-
-
-#make function which fetchs player framework
-#function that fetches clutch stats
+# Show the game log with minutes played
+print(game_log_df.head())

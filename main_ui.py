@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox
 from PyQt6.QtGui import QFont, QPixmap, QPainter
 from PyQt6.QtCore import Qt  
 import sys
@@ -134,13 +134,25 @@ class StartScreen(QWidget):
         grid_layout.addWidget(quit_button, 3, 2)
 
     def start_sim(self):
-        # Switch to index 1: SimulationScreen
-        self.stacked_widget.setCurrentIndex(1)  
+        # fetch team id
+        player_team_id = self.simulation_screen.player_team[0]['id']
+
+        # Open lineup selection window
+        self.lineup_window = LineupSelectionWindow(player_team_id, self.lineup_set)
+        self.lineup_window.show()
+
 
         print(f"Player's Team = {self.simulation_screen.player_team}")
         print(f"CPU's Team = {self.simulation_screen.cpu_team}")
         print(f"Player's Score = {self.player_score_box.value()}")
         print(f"CPU's Score = {self.cpu_score_box.value()}")
+    
+    def lineup_set(self, selected_players):
+        print("Selected Players: ", selected_players)
+
+        # Switch to index 1: SimulationScreen
+        self.stacked_widget.setCurrentIndex(1)  
+
 
     #selects player team
     def player_team_changed(self):
@@ -151,6 +163,63 @@ class StartScreen(QWidget):
         selected_team = self.cpu_team_select.currentText()
         self.simulation_screen.update_cpu_team(selected_team)
 
+class LineupSelectionWindow(QWidget):
+    def __init__(self, team_id, callback_function):
+        super().__init__()
+
+        #intialize variables
+        self.team_id = team_id
+        self.callback = callback_function
+        self.setWindowTitle("Select Your Lineup")
+
+        self.layout = QGridLayout()
+        self.dropdowns = []
+
+        #add widgets for position names
+        self.set_label("PG", 0)
+        self.set_label("SG", 1)
+        self.set_label("SF", 2)
+        self.set_label("PF", 3)
+        self.set_label("C", 4)
+
+        # Get team roster
+        roster = commonteamroster.CommonTeamRoster(team_id=team_id)
+        df = roster.get_data_frames()[0]
+        self.player_names = list(df['PLAYER'])
+
+        # 5 dropdown menus for 5 players on the floor
+        for i in range(5):
+            dropdown = QComboBox()
+            dropdown.addItems(self.player_names)
+            self.dropdowns.append(dropdown)         #grabs dropdown value to list
+            self.layout.addWidget(dropdown, i, 1)
+        
+
+        confirm_button = QPushButton("Confirm Lineup")
+        confirm_button.clicked.connect(self.confirm_lineup)
+        self.layout.addWidget(confirm_button, 5,  1)
+
+        self.setLayout(self.layout)
+
+    def set_label(self, text, row):
+        label = QLabel(text)
+        label.setFont(QFont("Helvetica", 10, QFont.Weight.Bold))
+        label.setStyleSheet("color: orange;")
+        self.layout.addWidget(label, row, 0)
+        
+
+    def confirm_lineup(self):
+        selected_players = [dropdown.currentText() for dropdown in self.dropdowns]
+
+        if len(set(selected_players)) < 5:
+            QMessageBox.warning(self, "Error", "You selected duplicate players!")
+            return
+
+        self.callback(selected_players)  # Send selected players back to main app
+        self.close() #close window
+
+
+
 #need to edit
 class SimulationScreen(QWidget):
     def __init__(self, stacked_widget):
@@ -158,7 +227,6 @@ class SimulationScreen(QWidget):
 
         #setting background screen
         self.background_pixmap = QPixmap("nba_images/basketball_court.jpg")
-
 
 
         self.stacked_widget = stacked_widget
@@ -169,12 +237,8 @@ class SimulationScreen(QWidget):
         layout = QGridLayout()
         self.setLayout(layout)
 
-        
 
-
-
-
-        label = QLabel("🏀 Welcome to the Simulation! 🏀")
+        label = QLabel("🏀 Simulation Screen 🏀")
         label.setFont(QFont("Helvetica", 30, QFont.Weight.Bold))
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label, 0, 0, 1, 2)
@@ -186,7 +250,7 @@ class SimulationScreen(QWidget):
         back_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(0))
         layout.addWidget(back_button, 1, 0, 1, 2)
 
-    #update selected team (called from start)
+    #update selected teams (called from start) and sets variable to dictionary
     def update_player_team(self, player_team):
         self.player_team = teams.find_teams_by_full_name(player_team)
 
@@ -195,15 +259,19 @@ class SimulationScreen(QWidget):
         self.cpu_team = teams.find_teams_by_full_name(cpu_team)
         #gonna have to update text labels
 
+        #print(f"Abbreviation: {self.cpu_team[0]['abbreviation']}")
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.drawPixmap(self.rect(), self.background_pixmap)
+
+    #def load_roster(self)
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Basketball Simulation")
-        self.setGeometry(100, 100, 900, 600)
+        self.setGeometry(100, 100, 900, 500)
 
         # Create Stacked Widget
         self.stacked_widget = QStackedWidget()
