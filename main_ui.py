@@ -2,9 +2,10 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout,
 from PyQt6.QtGui import QFont, QPixmap, QPainter
 from PyQt6.QtCore import Qt  
 import sys
-from nba_api.stats.endpoints import playercareerstats
+from nba_api.stats.endpoints import playercareerstats, teamgamelog, boxscoretraditionalv2
 from nba_api.stats.static import players, teams
 from nba_api.stats.endpoints import commonteamroster
+import pandas as pd
 
 class StartScreen(QWidget):
     def __init__(self, stacked_widget, sim_screen):
@@ -176,24 +177,32 @@ class LineupSelectionWindow(QWidget):
         self.dropdowns = []
 
         #add widgets for position names
-        self.set_label("PG", 0)
-        self.set_label("SG", 1)
-        self.set_label("SF", 2)
-        self.set_label("PF", 3)
-        self.set_label("C", 4)
+        self.set_label("SF", 0)
+        self.set_label("PF", 1)
+        self.set_label("C", 2)
+        self.set_label("SG", 3)
+        self.set_label("PG", 4)
 
         # Get team roster
         roster = commonteamroster.CommonTeamRoster(team_id=team_id)
         df = roster.get_data_frames()[0]
         self.player_names = list(df['PLAYER'])
 
-        # 5 dropdown menus for 5 players on the floor
+        #need to get starting lineup for team
+        starters = self.get_starters()
+
+        # 5 dropdown menus for 5 players on the floor and
         for i in range(5):
             dropdown = QComboBox()
             dropdown.addItems(self.player_names)
+
+            # set default from last game's starting lineup
+            dropdown.setCurrentText(starters[i])
+
             self.dropdowns.append(dropdown)         #grabs dropdown value to list
             self.layout.addWidget(dropdown, i, 1)
         
+
 
         confirm_button = QPushButton("Confirm Lineup")
         confirm_button.clicked.connect(self.confirm_lineup)
@@ -217,6 +226,59 @@ class LineupSelectionWindow(QWidget):
 
         self.callback(selected_players)  # Send selected players back to main app
         self.close() #close window
+
+    def get_starters(self):
+        season = '2024' 
+        team = next((team['abbreviation'] for team in teams.get_teams() if team['id'] == self.team_id), None) # get abbreivation from team_id
+
+        # Fetch the regular season game log
+        gamelog_regular = teamgamelog.TeamGameLog(team_id=self.team_id, season=season, season_type_all_star='Regular Season')
+        games_regular = gamelog_regular.get_data_frames()[0]
+
+        # Fetch the playoff game log
+        gamelog_playoffs = teamgamelog.TeamGameLog(team_id=self.team_id, season=season, season_type_all_star='Playoffs')
+        games_playoffs = gamelog_playoffs.get_data_frames()[0]
+
+        # Combine both regular season and playoff games
+        games_combined = pd.concat([games_regular, games_playoffs], ignore_index=True)
+
+        # Sort the combined games by GAME_DATE to get the most recent game
+        games_combined['GAME_DATE'] = pd.to_datetime(games_combined['GAME_DATE'])  # Convert GAME_DATE to datetime format
+        games_combined_sorted = games_combined.sort_values(by='GAME_DATE', ascending=False)
+
+        # Get the last game (most recent one)
+        if not games_combined_sorted.empty:
+            for _, game in games_combined_sorted.iterrows():
+                game_id = game['Game_ID']
+                print(f"Checking Game ID: {game_id}")
+                
+                # Fetch the box score for the current game
+                boxscore = boxscoretraditionalv2.BoxScoreTraditionalV2(game_id=game_id)
+
+                # Get player stats DataFrame
+                player_stats = boxscore.get_data_frames()[0]
+
+                #filter players to be only starters from selected team
+                team_starters = player_stats[
+                    (player_stats['TEAM_ABBREVIATION'] == team) &
+                    (player_stats['START_POSITION'].isin(['G', 'F', 'C']))
+                ]
+
+                # once team starters are found: display
+                if not team_starters.empty:
+                    print(f"Found starters for Game ID: {game_id}")
+                    print(f"Game details:\n{game}")
+                    print(f"Game ID = {game_id}")
+                    print(team_starters[['PLAYER_NAME', 'START_POSITION']])
+                    return team_starters['PLAYER_NAME'].tolist()  # exit loops when starters are found
+            else:
+                print(f"No valid starters found in the recent games for {team}.")
+                return
+        else:
+            print(f"No games found for {team}.")
+            return
+
+    
 
 
 
@@ -285,6 +347,20 @@ class MainWindow(QMainWindow):
         self.stacked_widget.simulation_screen = self.simulation_screen
         self.stacked_widget.addWidget(self.start_screen)  # Index 0 (start)
         self.stacked_widget.addWidget(self.simulation_screen)  # Index 1 (sim)
+
+
+def get_team_id_from_abbreviation(abbreviation):
+        # Fetch the list of all NBA teams
+        all_teams = teams.get_teams()
+        
+        # Search for the team with the given abbreviation
+        for team in all_teams:
+            if team['abbreviation'] == abbreviation:
+                return team['id']
+        
+        # If no match is found, return None
+        return None
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

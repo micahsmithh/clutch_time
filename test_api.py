@@ -16,7 +16,7 @@ def get_team_id_from_abbreviation(abbreviation):
 
 
 
-team = 'DAL'
+team = 'CLE'
 team_id = get_team_id_from_abbreviation(team)  # Cleveland Cavaliers
 season = '2024'  # 2024 season (you can change this to the relevant season)
 
@@ -53,9 +53,9 @@ if not games_combined_sorted.empty:
         ]
 
         # Filter players who have a non-null START_POSITION (they are the starters)
-        for _, player in player_stats.iterrows():
-            if player['TEAM_ABBREVIATION'] == team and player['START_POSITION'] in ['G', 'F', 'C'] :
-                team_starters._append(player)
+        # for _, player in player_stats.iterrows():
+        #     if player['TEAM_ABBREVIATION'] == team and player['START_POSITION'] in ['G', 'F', 'C'] :
+        #         team_starters._append(player)
         #starters = player_stats[player_stats['START_POSITION'].notnull()]
 
         # Further filter by team (optional, if you want just Cavs)
