@@ -6,6 +6,7 @@ from nba_api.stats.endpoints import playercareerstats, teamgamelog, boxscoretrad
 from nba_api.stats.static import players, teams
 from nba_api.stats.endpoints import commonteamroster
 import pandas as pd
+from game import game
 
 class StartScreen(QWidget):
     def __init__(self, stacked_widget, sim_screen):
@@ -139,10 +140,12 @@ class StartScreen(QWidget):
         player_team_id = self.simulation_screen.player_team[0]['id']
         cpu_team_id = self.simulation_screen.cpu_team[0]['id']
 
+        #set teams scores
+        self.simulation_screen.set_game_variables(self.player_score_box.value(), self.cpu_score_box.value()) 
+
         # Open lineup selection window
         self.lineup_window = LineupSelectionWindow(player_team_id, cpu_team_id, self.lineup_set)
         self.lineup_window.show()
-
 
         print(f"Player's Team = {self.simulation_screen.player_team}")
         print(f"CPU's Team = {self.simulation_screen.cpu_team}")
@@ -287,8 +290,6 @@ class LineupSelectionWindow(QWidget):
             print(f"No games found for {team}.")
             return
 
-    
-
 
 
 #need to edit
@@ -301,9 +302,9 @@ class SimulationScreen(QWidget):
 
 
         self.stacked_widget = stacked_widget
-
         self.player_team = None
         self.cpu_team = None
+        self.game_info = game()
 
         self.player_lineup = []
         self.cpu_lineup = []
@@ -348,6 +349,20 @@ class SimulationScreen(QWidget):
         self.cpu_lineup = cpu_lineup
 
         print(f"CPU's Lineup: {self.cpu_lineup}")
+
+    #set scores
+    def set_game_variables(self, player_score, cpu_score):
+        self.game_info.set_player_score(player_score)
+        self.game_info.set_cpu_score(cpu_score)
+
+        # print(self.game_info.player_score)
+        # print(self.game_info.cpu_score)
+
+    def game_logic(self):
+
+        # checks if player has possession
+        if self.game_info.possession == 0:
+            
 
 class MainWindow(QMainWindow):
     def __init__(self):
