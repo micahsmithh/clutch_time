@@ -137,9 +137,10 @@ class StartScreen(QWidget):
     def start_sim(self):
         # fetch team id
         player_team_id = self.simulation_screen.player_team[0]['id']
+        cpu_team_id = self.simulation_screen.cpu_team[0]['id']
 
         # Open lineup selection window
-        self.lineup_window = LineupSelectionWindow(player_team_id, self.lineup_set)
+        self.lineup_window = LineupSelectionWindow(player_team_id, cpu_team_id, self.lineup_set)
         self.lineup_window.show()
 
 
@@ -148,10 +149,11 @@ class StartScreen(QWidget):
         print(f"Player's Score = {self.player_score_box.value()}")
         print(f"CPU's Score = {self.cpu_score_box.value()}")
     
-    def lineup_set(self, selected_players):
-        print("Selected Players: ", selected_players)
+    def lineup_set(self, player_selected_players, cpu_lineup):
+        print("Selected Players: ", player_selected_players)
 
-        self.simulation_screen.set_player_lineup(selected_players)
+        self.simulation_screen.set_player_lineup(player_selected_players)
+        self.simulation_screen.set_cpu_lineup(cpu_lineup)
 
         # Switch to index 1: SimulationScreen
         self.stacked_widget.setCurrentIndex(1)  
@@ -167,11 +169,12 @@ class StartScreen(QWidget):
         self.simulation_screen.update_cpu_team(selected_team)
 
 class LineupSelectionWindow(QWidget):
-    def __init__(self, team_id, callback_function):
+    def __init__(self, player_team_id, cpu_team_id, callback_function):
         super().__init__()
 
         #intialize variables
-        self.team_id = team_id
+        self.player_team_id = player_team_id
+        self.cpu_team_id = cpu_team_id
         self.callback = callback_function
         self.setWindowTitle("Select Your Lineup")
 
@@ -186,12 +189,16 @@ class LineupSelectionWindow(QWidget):
         self.set_label("PG", 4)
 
         # Get team roster
-        roster = commonteamroster.CommonTeamRoster(team_id=team_id)
+        roster = commonteamroster.CommonTeamRoster(team_id=player_team_id)
         df = roster.get_data_frames()[0]
         self.player_names = list(df['PLAYER'])
 
         #need to get starting lineup for team
-        starters = self.get_starters()
+        player_starters = self.get_starters(self.player_team_id)
+
+        #get starters for cpu team
+        self.cpu_starters = self.get_starters(self.cpu_team_id)
+        #print(f"CPU Starters = {self.cpu_starters}")
 
         # 5 dropdown menus for 5 players on the floor and
         for i in range(5):
@@ -199,7 +206,7 @@ class LineupSelectionWindow(QWidget):
             dropdown.addItems(self.player_names)
 
             # set default from last game's starting lineup
-            dropdown.setCurrentText(starters[i])
+            dropdown.setCurrentText(player_starters[i])
 
             self.dropdowns.append(dropdown)         #grabs dropdown value to list
             self.layout.addWidget(dropdown, i, 1)
@@ -220,25 +227,25 @@ class LineupSelectionWindow(QWidget):
         
 
     def confirm_lineup(self):
-        selected_players = [dropdown.currentText() for dropdown in self.dropdowns]
+        player_selected_players = [dropdown.currentText() for dropdown in self.dropdowns]
 
-        if len(set(selected_players)) < 5:
+        if len(set(player_selected_players)) < 5:
             QMessageBox.warning(self, "Error", "You selected duplicate players!")
             return
 
-        self.callback(selected_players)  # Send selected players back to main app
+        self.callback(player_selected_players, self.cpu_starters)  # Send selected players back to main app
         self.close() #close window
 
-    def get_starters(self):
+    def get_starters(self, team_id):
         season = '2024' 
-        team = next((team['abbreviation'] for team in teams.get_teams() if team['id'] == self.team_id), None) # get abbreivation from team_id
+        team = next((team['abbreviation'] for team in teams.get_teams() if team['id'] == team_id), None) # get abbreivation from team_id
 
         # Fetch the regular season game log
-        gamelog_regular = teamgamelog.TeamGameLog(team_id=self.team_id, season=season, season_type_all_star='Regular Season')
+        gamelog_regular = teamgamelog.TeamGameLog(team_id=team_id, season=season, season_type_all_star='Regular Season')
         games_regular = gamelog_regular.get_data_frames()[0]
 
         # Fetch the playoff game log
-        gamelog_playoffs = teamgamelog.TeamGameLog(team_id=self.team_id, season=season, season_type_all_star='Playoffs')
+        gamelog_playoffs = teamgamelog.TeamGameLog(team_id=team_id, season=season, season_type_all_star='Playoffs')
         games_playoffs = gamelog_playoffs.get_data_frames()[0]
 
         # Combine both regular season and playoff games
@@ -336,6 +343,11 @@ class SimulationScreen(QWidget):
         self.player_lineup = player_lineup
 
         print(f"Player's Lineup: {self.player_lineup}")
+
+    def set_cpu_lineup(self, cpu_lineup):
+        self.cpu_lineup = cpu_lineup
+
+        print(f"CPU's Lineup: {self.cpu_lineup}")
 
 class MainWindow(QMainWindow):
     def __init__(self):
