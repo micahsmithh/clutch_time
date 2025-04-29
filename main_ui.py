@@ -151,6 +151,8 @@ class StartScreen(QWidget):
     def lineup_set(self, selected_players):
         print("Selected Players: ", selected_players)
 
+        self.simulation_screen.set_player_lineup(selected_players)
+
         # Switch to index 1: SimulationScreen
         self.stacked_widget.setCurrentIndex(1)  
 
@@ -296,6 +298,9 @@ class SimulationScreen(QWidget):
         self.player_team = None
         self.cpu_team = None
 
+        self.player_lineup = []
+        self.cpu_lineup = []
+
         layout = QGridLayout()
         self.setLayout(layout)
 
@@ -327,7 +332,10 @@ class SimulationScreen(QWidget):
         painter = QPainter(self)
         painter.drawPixmap(self.rect(), self.background_pixmap)
 
-    #def load_roster(self)
+    def set_player_lineup(self, player_lineup):
+        self.player_lineup = player_lineup
+
+        print(f"Player's Lineup: {self.player_lineup}")
 
 class MainWindow(QMainWindow):
     def __init__(self):
