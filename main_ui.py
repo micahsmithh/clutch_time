@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox, QHBoxLayout, QTextEdit
 from PyQt6.QtGui import QFont, QPixmap, QPainter
 from PyQt6.QtCore import Qt  
 import sys
@@ -137,8 +137,8 @@ class StartScreen(QWidget):
 
     def start_sim(self):
         # fetch team id
-        player_team_id = self.simulation_screen.player_team[0]['id']
-        cpu_team_id = self.simulation_screen.cpu_team[0]['id']
+        player_team_id = self.simulation_screen.player_team['id']
+        cpu_team_id = self.simulation_screen.cpu_team['id']
 
         #set teams scores
         self.simulation_screen.set_game_variables(self.player_score_box.value(), self.cpu_score_box.value()) 
@@ -151,12 +151,16 @@ class StartScreen(QWidget):
         print(f"CPU's Team = {self.simulation_screen.cpu_team}")
         print(f"Player's Score = {self.player_score_box.value()}")
         print(f"CPU's Score = {self.cpu_score_box.value()}")
+
+        #update logos
+        self.simulation_screen.update_team_logos()
     
     def lineup_set(self, player_selected_players, cpu_lineup):
         print("Selected Players: ", player_selected_players)
 
         self.simulation_screen.set_player_lineup(player_selected_players)
         self.simulation_screen.set_cpu_lineup(cpu_lineup)
+        
 
         # Switch to index 1: SimulationScreen
         self.stacked_widget.setCurrentIndex(1)  
@@ -313,25 +317,78 @@ class SimulationScreen(QWidget):
         self.setLayout(layout)
 
 
-        label = QLabel("🏀 Simulation Screen 🏀")
-        label.setFont(QFont("Helvetica", 30, QFont.Weight.Bold))
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(label, 0, 0, 1, 2)
+        # label = QLabel("🏀 Simulation Screen 🏀")
+        # label.setFont(QFont("Helvetica", 30, QFont.Weight.Bold))
+        # label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # layout.addWidget(label, 0, 0, 1, 2)
 
         # Back Button (Switch back to Start Screen)
         back_button = QPushButton("Back to Main Menu")
         back_button.setFont(QFont("Helvetica", 14))
         back_button.setStyleSheet("background-color: blue; color: white; padding: 10px;")
         back_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(0))
-        layout.addWidget(back_button, 1, 0, 1, 2)
+        layout.addWidget(back_button, 2, 0, 1, 2)
+
+
+
+        ##################################
+        # GAME BUTTONS
+        ##################################
+        
+        # Lineups and Play Log
+        self.left_lineup = QVBoxLayout()    # Player team lineup
+        self.center_log = QVBoxLayout()     # Play-by-play log
+        self.right_lineup = QVBoxLayout()   # CPU team lineup
+
+        # Fill player lineup
+        self.player_lineup_labels = []
+        for i in range(5):
+            label = QLabel(f"Player {i+1}")
+            label.setFont(QFont("Helvetica", 15))
+            self.player_lineup_labels.append(label)
+            self.left_lineup.addWidget(label)
+
+        # Fill CPU lineup
+        self.cpu_lineup_labels = []
+        for i in range(5):
+            label = QLabel(f"CPU {i+1}")
+            label.setFont(QFont("Helvetica", 15))
+            self.cpu_lineup_labels.append(label)
+            self.right_lineup.addWidget(label)
+
+        # Play log label (scrollable)
+        self.play_log = QTextEdit()
+        self.play_log.setReadOnly(True)
+        self.play_log.setFont(QFont("Helvetica", 12))
+        log_title = QLabel("Play by Play")
+        log_title.setFont(QFont("Helvetica", 15))
+        self.center_log.addWidget(log_title)
+        self.center_log.addWidget(self.play_log)
+
+        # Create horizontal container layout
+        middle_layout = QHBoxLayout()
+        middle_layout.addLayout(self.left_lineup)
+        middle_layout.addLayout(self.center_log)
+        middle_layout.addLayout(self.right_lineup)
+
+        # Add to the main grid layout
+        layout.addLayout(middle_layout, 1, 0, 1, 2) # spans 1 row 2 columns
+
+
+        #add logos
+        self.player_logo = QLabel()
+        layout.addWidget(self.player_logo, 0, 0)
+
+        self.cpu_logo = QLabel()
+        layout.addWidget(self.cpu_logo, 0, 1)
 
     #update selected teams (called from start) and sets variable to dictionary
     def update_player_team(self, player_team):
-        self.player_team = teams.find_teams_by_full_name(player_team)
+        self.player_team = teams.find_teams_by_full_name(player_team)[0]
 
         #gonna have to update text labels
     def update_cpu_team(self, cpu_team):
-        self.cpu_team = teams.find_teams_by_full_name(cpu_team)
+        self.cpu_team = teams.find_teams_by_full_name(cpu_team)[0]
         #gonna have to update text labels
 
         #print(f"Abbreviation: {self.cpu_team[0]['abbreviation']}")
@@ -342,13 +399,35 @@ class SimulationScreen(QWidget):
 
     def set_player_lineup(self, player_lineup):
         self.player_lineup = player_lineup
+        for i, name in enumerate(player_lineup):
+            self.player_lineup_labels[i].setText(name)
 
         print(f"Player's Lineup: {self.player_lineup}")
+        
 
     def set_cpu_lineup(self, cpu_lineup):
         self.cpu_lineup = cpu_lineup
+        for i, name in enumerate(cpu_lineup):
+            self.cpu_lineup_labels[i].setText(name)
 
         print(f"CPU's Lineup: {self.cpu_lineup}")
+
+    def update_team_logos(self):
+        print(self.player_team)
+        print(f"This is the team: {self.player_team['abbreviation']}")
+        player_pixmap = QPixmap(f"team_logos/{self.player_team['abbreviation'].lower()}.png")  
+
+        # Scale Image
+        scaled_player_pixmap = player_pixmap.scaled(100, 100, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
+        self.player_logo.setPixmap(scaled_player_pixmap)
+        self.player_logo.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        cpu_pixmap = QPixmap(f"team_logos/{self.cpu_team['abbreviation'].lower()}.png")  
+
+        # Scale Image
+        scaled_cpu_pixmap = cpu_pixmap.scaled(100, 100, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
+        self.cpu_logo.setPixmap(scaled_cpu_pixmap)
+        self.cpu_logo.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
     #set scores
     def set_game_variables(self, player_score, cpu_score):
@@ -358,17 +437,23 @@ class SimulationScreen(QWidget):
         # print(self.game_info.player_score)
         # print(self.game_info.cpu_score)
 
-    def game_logic(self):
 
-        # checks if player has possession
-        if self.game_info.possession == 0:
-            
+    def log_play(self, text):
+        self.play_log.append(text)
+
+
+    # def game_logic(self):
+
+    #     # checks if player has possession
+    #     if self.game_info.possession == 0:
+
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Basketball Simulation")
-        self.setGeometry(100, 100, 900, 500)
+        self.setGeometry(100, 100, 1100, 700)
 
         # Create Stacked Widget
         self.stacked_widget = QStackedWidget()
