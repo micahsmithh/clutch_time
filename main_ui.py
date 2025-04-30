@@ -334,12 +334,12 @@ class SimulationScreen(QWidget):
         back_button.setFont(QFont("Helvetica", 14))
         back_button.setStyleSheet("background-color: blue; color: white; padding: 10px;")
         back_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(0))
-        layout.addWidget(back_button, 2, 0, 1, 2)
+        layout.addWidget(back_button, 3, 0, 1, 3)
 
 
 
         ##################################
-        # GAME BUTTONS
+        # Setting Up Main UI Elements
         ##################################
         
         # Lineups and Play Log
@@ -347,21 +347,47 @@ class SimulationScreen(QWidget):
         self.center_log = QVBoxLayout()     # Play-by-play log
         self.right_lineup = QVBoxLayout()   # CPU team lineup
 
-        # Fill player lineup
+        #holds lineup lables
         self.player_lineup_labels = []
+        self.cpu_lineup_labels = []
+
+
+        # Fill player lineup
+
         for i in range(5):
-            label = QLabel(f"Player {i+1}")
-            label.setFont(QFont("Helvetica", 15))
-            self.player_lineup_labels.append(label)
-            self.left_lineup.addWidget(label)
+            player_layout = QHBoxLayout()
+
+            image_label = QLabel()  # Set headshot label
+            image_label.setFixedSize(50, 50)
+            
+
+            text_label = QLabel(f"Player {i+1}")        #text label
+            text_label.setFont(QFont("Helvetica", 15))
+            text_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+
+            player_layout.addWidget(image_label)    # Add headshot image first
+            player_layout.addWidget(text_label)     # Player name next to image
+            self.left_lineup.addLayout(player_layout)   # Add layout to overall lineup layout
+
+            self.player_lineup_labels.append((image_label, text_label))
 
         # Fill CPU lineup
-        self.cpu_lineup_labels = []
         for i in range(5):
-            label = QLabel(f"CPU {i+1}")
-            label.setFont(QFont("Helvetica", 15))
-            self.cpu_lineup_labels.append(label)
-            self.right_lineup.addWidget(label)
+            player_layout = QHBoxLayout()
+
+            image_label = QLabel()  # Set headshot label
+            image_label.setFixedSize(50, 50)
+            
+
+            text_label = QLabel(f"Player {i+1}")        #text label
+            text_label.setFont(QFont("Helvetica", 15))
+            text_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+
+            player_layout.addWidget(image_label)    # Add headshot image first
+            player_layout.addWidget(text_label)     # Player name next to image
+            self.right_lineup.addLayout(player_layout)   # Add layout to overall lineup layout
+
+            self.cpu_lineup_labels.append((image_label, text_label))
 
         # Play log label (scrollable)
         self.play_log = QTextEdit()
@@ -373,21 +399,22 @@ class SimulationScreen(QWidget):
         self.center_log.addWidget(self.play_log)
 
         # Create horizontal container layout
-        middle_layout = QHBoxLayout()
-        middle_layout.addLayout(self.left_lineup)
-        middle_layout.addLayout(self.center_log)
-        middle_layout.addLayout(self.right_lineup)
+        # middle_layout = QHBoxLayout()
+        # middle_layout.addLayout(self.left_lineup)
+        # middle_layout.addLayout(self.center_log)
+        # middle_layout.addLayout(self.right_lineup)
 
         # Add to the main grid layout
-        layout.addLayout(middle_layout, 1, 0, 1, 2) # spans 1 row 2 columns
-
+        layout.addLayout(self.left_lineup, 1, 0, 1, 1) 
+        layout.addLayout(self.center_log, 1, 1, 2, 1)   # spans 2 rows 1 columns
+        layout.addLayout(self.right_lineup, 1, 2, 1, 1)
 
         #add logos
         self.player_logo = QLabel()
         layout.addWidget(self.player_logo, 0, 0)
 
         self.cpu_logo = QLabel()
-        layout.addWidget(self.cpu_logo, 0, 1)
+        layout.addWidget(self.cpu_logo, 0, 2)
 
     #update selected teams (called from start) and sets variable to dictionary
     def update_player_team(self, player_team):
@@ -407,7 +434,23 @@ class SimulationScreen(QWidget):
     def set_player_lineup(self, player_lineup):
         self.player_lineup = player_lineup
         for i, name in enumerate(player_lineup):
-            self.player_lineup_labels[i].setText(name)
+            image_label, text_label = self.player_lineup_labels[i]  # Access both the image and text
+            text_label.setText(name)
+            
+            # Fetch headshot
+            player_info = players.find_players_by_full_name(name)
+            player_id = player_info[0]['id']
+            headshot_url = f"https://cdn.nba.com/headshots/nba/latest/260x190/{player_id}.png"
+            pixmap = self.get_image_from_url(headshot_url)
+
+            # Set pixmap 
+            scaled_pixmap = pixmap.scaled(
+                50, 50,
+                aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio,
+                transformMode=Qt.TransformationMode.SmoothTransformation
+            )
+            image_label.setPixmap(scaled_pixmap)
+
 
         print(f"Player's Lineup: {self.player_lineup}")
         self.player_stats = self.get_clutch_dict(player_lineup) # Put stats in our own dictionary
@@ -419,7 +462,22 @@ class SimulationScreen(QWidget):
     def set_cpu_lineup(self, cpu_lineup):
         self.cpu_lineup = cpu_lineup
         for i, name in enumerate(cpu_lineup):
-            self.cpu_lineup_labels[i].setText(name)
+            image_label, text_label = self.cpu_lineup_labels[i]  # Access both the image and text
+            text_label.setText(name)
+            
+            # Fetch headshot
+            player_info = players.find_players_by_full_name(name)
+            player_id = player_info[0]['id']
+            headshot_url = f"https://cdn.nba.com/headshots/nba/latest/260x190/{player_id}.png"
+            pixmap = self.get_image_from_url(headshot_url)
+
+            # Set pixmap 
+            scaled_pixmap = pixmap.scaled(
+                50, 50,
+                aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio,
+                transformMode=Qt.TransformationMode.SmoothTransformation
+            )
+            image_label.setPixmap(scaled_pixmap)
 
         print(f"CPU's Lineup: {self.cpu_lineup}")
         self.cpu_stats = self.get_clutch_dict(cpu_lineup) # Put stats in our own dictionary
