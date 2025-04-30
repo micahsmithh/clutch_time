@@ -15,10 +15,8 @@ clutch_stats = LeagueDashPlayerClutch(
 df = clutch_stats.get_data_frames()[0]
 
 # Now you can filter for a single player
-player_name = "Stephen Curry"
-player_clutch = df[df['PLAYER_NAME'] == player_name]
 
-print(player_clutch[['PLAYER_NAME', 'FG3_PCT']])
+#print(player_clutch[['PLAYER_NAME', 'FG3_PCT']])
 
 
 
@@ -29,12 +27,12 @@ class Player:
         player_info = players.find_players_by_full_name(player_name)
         self.id = player_info[0]['id']
         self.clutch_stats = df[df['PLAYER_ID'] == self.id]
-
-        print(self.clutch_stats.columns)
-        print(self.clutch_stats[['PLAYER_NAME', 'FG_PCT', 'FG3_PCT']])
-
-
+    
+        print(self.clutch_stats.iloc[0]['FG_PCT'])
+        print(self.clutch_stats[['PLAYER_NAME', 'FG_PCT', 'FG3_PCT', 'FT_PCT']])
 
 
 
-player_1 = Player('Darius Garland', df)
+
+
+player_1 = Player('Zaccharie Risacher', df)

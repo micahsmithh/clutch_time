@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout,
 from PyQt6.QtGui import QFont, QPixmap, QPainter
 from PyQt6.QtCore import Qt, QByteArray  
 import sys
-from nba_api.stats.endpoints import playercareerstats, teamgamelog, boxscoretraditionalv2
+from nba_api.stats.endpoints import playercareerstats, teamgamelog, boxscoretraditionalv2, LeagueDashPlayerClutch
 from nba_api.stats.static import players, teams
 from nba_api.stats.endpoints import commonteamroster
 import pandas as pd
@@ -34,7 +34,11 @@ class StartScreen(QWidget):
         nba_pixmap = QPixmap("nba_images/nba_logo.png")  
 
         # Scale Image
-        scaled_nba_pixmap = nba_pixmap.scaled(150, 150, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
+        scaled_nba_pixmap = nba_pixmap.scaled(
+            150, 150,
+            aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio,
+            transformMode=Qt.TransformationMode.SmoothTransformation
+        )
         nba_label.setPixmap(scaled_nba_pixmap)
         nba_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         grid_layout.addWidget(nba_label, 1, 1)
@@ -313,6 +317,8 @@ class SimulationScreen(QWidget):
 
         self.player_lineup = []
         self.cpu_lineup = []
+        self.player_stats = {}
+        self.cpu_stats = {}
 
         layout = QGridLayout()
         self.setLayout(layout)
@@ -404,6 +410,8 @@ class SimulationScreen(QWidget):
             self.player_lineup_labels[i].setText(name)
 
         print(f"Player's Lineup: {self.player_lineup}")
+        self.player_stats = self.get_clutch_dict(player_lineup) # Put stats in our own dictionary
+        print(self.player_stats)
         
 
     def set_cpu_lineup(self, cpu_lineup):
@@ -412,6 +420,7 @@ class SimulationScreen(QWidget):
             self.cpu_lineup_labels[i].setText(name)
 
         print(f"CPU's Lineup: {self.cpu_lineup}")
+        self.cpu_stats = self.get_clutch_dict(cpu_lineup) # Put stats in our own dictionary
 
     def update_team_logos(self):
         
@@ -424,17 +433,25 @@ class SimulationScreen(QWidget):
         logo_url = f"https://a.espncdn.com/i/teamlogos/nba/500/{self.player_team['abbreviation']}.png"
 
         pixmap = self.get_image_from_url(logo_url)
-        scaled_player_pixmap = pixmap.scaled(100, 100, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
-        self.player_logo.setPixmap(scaled_player_pixmap)
+        scaled_pixmap = pixmap.scaled(
+            100, 100,
+            aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio,
+            transformMode=Qt.TransformationMode.SmoothTransformation
+        )
+        self.player_logo.setPixmap(scaled_pixmap)
         self.player_logo.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         #now we do same thing with cpu_team
         logo_url = f"https://a.espncdn.com/i/teamlogos/nba/500/{self.cpu_team['abbreviation']}.png"
 
         pixmap = self.get_image_from_url(logo_url)
-        scaled_cpu_pixmap = pixmap.scaled(100, 100, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
-        self.cpu_logo.setPixmap(scaled_cpu_pixmap)
-        self.cpu_logo.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        scaled_pixmap = pixmap.scaled(
+            100, 100,
+            aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio,
+            transformMode=Qt.TransformationMode.SmoothTransformation
+        )
+        self.cpu_logo.setPixmap(scaled_pixmap)
+        self.cpu_logo.setAlignment(Qt.AlignmentFlag.AlignRight)
             
 
     #set scores
@@ -459,6 +476,51 @@ class SimulationScreen(QWidget):
         else:
             print("Failed to Load image from URL")
 
+
+    def get_clutch_dict(self, players_list):
+
+        # pull clutch stats
+        clutch_stats = LeagueDashPlayerClutch(
+        season='2024-25',
+        season_type_all_star='Regular Season',
+        clutch_time='Last 5 Minutes', 
+        ahead_behind='Ahead or Behind', 
+        point_diff=5  # within 5 points
+        )
+
+        # Get Data Frame
+        df = clutch_stats.get_data_frames()[0]
+
+        clutch_dict = {}
+
+        print(f"Team : {players_list}")
+
+        for name in players_list:
+            player_info = players.find_players_by_full_name(name)
+            player_id = player_info[0]['id']
+            player_clutch_stats = df[df['PLAYER_ID'] == player_id]
+
+            # calculate FG2_PCT
+            #print(player_clutch_stats.iloc[0]['FGA'])
+
+            two_points_attempted = player_clutch_stats.iloc[0]['FGA'] - player_clutch_stats.iloc[0]['FG3A']
+            two_points_made = player_clutch_stats.iloc[0]['FGM'] - player_clutch_stats.iloc[0]['FG3M']
+            two_point_percentage = round(two_points_made / two_points_attempted, 3) if two_points_attempted != 0 else 0 #zero checking
+
+            clutch_dict[name] = {
+                'FG_PCT' : player_clutch_stats.iloc[0]['FG_PCT'],
+                'FG3_PCT' : player_clutch_stats.iloc[0]['FG3_PCT'],
+                'FG2_PCT' : two_point_percentage,
+                'FT_PCT'  : player_clutch_stats.iloc[0]['FT_PCT']
+            
+        }
+            
+        # print(f"{players_list[0]}'s FG_PCT = {clutch_dict[players_list[0]]['FG_PCT']}")
+        # print(f"{players_list[0]}'s FG2_PCT = {clutch_dict[players_list[0]]['FG2_PCT']}")
+        # print(f"{players_list[0]}'s FG3_PCT = {clutch_dict[players_list[0]]['FG3_PCT']}")
+        # print(f"{players_list[0]}'s FT_PCT = {clutch_dict[players_list[0]]['FT_PCT']}")
+
+        return clutch_dict
 
     def log_play(self, text):
         self.play_log.append(text)
