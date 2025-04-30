@@ -1,6 +1,6 @@
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox, QHBoxLayout, QTextEdit
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox, QHBoxLayout, QTextEdit, QSizePolicy
 from PyQt6.QtGui import QFont, QPixmap, QPainter
-from PyQt6.QtCore import Qt, QByteArray  
+from PyQt6.QtCore import Qt, QByteArray
 import sys
 from nba_api.stats.endpoints import playercareerstats, teamgamelog, boxscoretraditionalv2, LeagueDashPlayerClutch
 from nba_api.stats.static import players, teams
@@ -362,10 +362,10 @@ class SimulationScreen(QWidget):
             
 
             text_label = QLabel(f"Player {i+1}")        #text label
-            text_label.setFont(QFont("Helvetica", 15))
+            text_label.setFont(QFont("Helvetica", 13))
             text_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
-            player_layout.addWidget(image_label)    # Add headshot image first
+            player_layout.addWidget(image_label, alignment=Qt.AlignmentFlag.AlignVCenter)    # Add headshot image first
             player_layout.addWidget(text_label)     # Player name next to image
             self.left_lineup.addLayout(player_layout)   # Add layout to overall lineup layout
 
@@ -378,9 +378,10 @@ class SimulationScreen(QWidget):
             image_label = QLabel()  # Set headshot label
             image_label.setFixedSize(50, 50)
             
+            
 
             text_label = QLabel(f"Player {i+1}")        #text label
-            text_label.setFont(QFont("Helvetica", 15))
+            text_label.setFont(QFont("Helvetica", 13))
             text_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
             player_layout.addWidget(image_label)    # Add headshot image first
@@ -398,16 +399,28 @@ class SimulationScreen(QWidget):
         self.center_log.addWidget(log_title)
         self.center_log.addWidget(self.play_log)
 
-        # Create horizontal container layout
-        # middle_layout = QHBoxLayout()
-        # middle_layout.addLayout(self.left_lineup)
-        # middle_layout.addLayout(self.center_log)
-        # middle_layout.addLayout(self.right_lineup)
+        self.left_lineup_widget = QWidget()
+        self.left_lineup_widget.setLayout(self.left_lineup)
+        self.left_lineup_widget.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 150);  /* semi-transparent black */
+            border-radius: 10px;
+            padding: 2px;
+        """)
+
+        self.right_lineup_widget = QWidget()
+        self.right_lineup_widget.setLayout(self.right_lineup)
+        self.right_lineup_widget.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 150);  /* semi-transparent black */
+            border-radius: 10px;
+            padding: 2px;
+        """)
 
         # Add to the main grid layout
         layout.addLayout(self.left_lineup, 1, 0, 1, 1) 
         layout.addLayout(self.center_log, 1, 1, 2, 1)   # spans 2 rows 1 columns
         layout.addLayout(self.right_lineup, 1, 2, 1, 1)
+        layout.addWidget(self.left_lineup_widget, 1, 0, 1, 1)
+        layout.addWidget(self.right_lineup_widget, 1, 2, 1, 1)
 
         #add logos
         self.player_logo = QLabel()
