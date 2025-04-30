@@ -411,7 +411,9 @@ class SimulationScreen(QWidget):
 
         print(f"Player's Lineup: {self.player_lineup}")
         self.player_stats = self.get_clutch_dict(player_lineup) # Put stats in our own dictionary
-        print(self.player_stats)
+
+        #calls function to add player images
+        self.add_headshots()
         
 
     def set_cpu_lineup(self, cpu_lineup):
@@ -430,7 +432,16 @@ class SimulationScreen(QWidget):
         # headshot_url = f"https://cdn.nba.com/headshots/nba/latest/260x190/{player_id}.png"
 
         #url we will pull logo from
-        logo_url = f"https://a.espncdn.com/i/teamlogos/nba/500/{self.player_team['abbreviation']}.png"
+        abbreviation = None
+
+        if self.player_team['abbreviation'] == 'UTA':
+            abbreviation = 'UTH'
+        elif self.player_team['abbreviation'] == 'NOP':
+            abbreviation = 'NOR'
+        else:
+            abbreviation = self.player_team['abbreviation']
+
+        logo_url = f"https://a.espncdn.com/i/teamlogos/nba/500/{abbreviation}.png"
 
         pixmap = self.get_image_from_url(logo_url)
         scaled_pixmap = pixmap.scaled(
@@ -442,7 +453,14 @@ class SimulationScreen(QWidget):
         self.player_logo.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         #now we do same thing with cpu_team
-        logo_url = f"https://a.espncdn.com/i/teamlogos/nba/500/{self.cpu_team['abbreviation']}.png"
+        if self.cpu_team['abbreviation'] == 'UTA':
+            abbreviation = 'UTH'
+        elif self.cpu_team['abbreviation'] == 'NOP':
+            abbreviation = 'NOR'
+        else:
+            abbreviation = self.cpu_team['abbreviation']
+
+        logo_url = f"https://a.espncdn.com/i/teamlogos/nba/500/{abbreviation}.png"
 
         pixmap = self.get_image_from_url(logo_url)
         scaled_pixmap = pixmap.scaled(
@@ -521,6 +539,9 @@ class SimulationScreen(QWidget):
         # print(f"{players_list[0]}'s FT_PCT = {clutch_dict[players_list[0]]['FT_PCT']}")
 
         return clutch_dict
+    
+    def add_headshots(self):
+        nothing = 0
 
     def log_play(self, text):
         self.play_log.append(text)
