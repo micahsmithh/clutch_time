@@ -1,12 +1,13 @@
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox, QHBoxLayout, QTextEdit
 from PyQt6.QtGui import QFont, QPixmap, QPainter
-from PyQt6.QtCore import Qt  
+from PyQt6.QtCore import Qt, QByteArray  
 import sys
 from nba_api.stats.endpoints import playercareerstats, teamgamelog, boxscoretraditionalv2
 from nba_api.stats.static import players, teams
 from nba_api.stats.endpoints import commonteamroster
 import pandas as pd
 from game import game
+import requests
 
 class StartScreen(QWidget):
     def __init__(self, stacked_widget, sim_screen):
@@ -413,21 +414,28 @@ class SimulationScreen(QWidget):
         print(f"CPU's Lineup: {self.cpu_lineup}")
 
     def update_team_logos(self):
-        print(self.player_team)
-        print(f"This is the team: {self.player_team['abbreviation']}")
-        player_pixmap = QPixmap(f"team_logos/{self.player_team['abbreviation'].lower()}.png")  
+        
+        # player_name = "Donovan Mitchell"
+        # player_info = players.find_players_by_full_name(player_name)
+        # player_id = player_info[0]["id"]
+        # headshot_url = f"https://cdn.nba.com/headshots/nba/latest/260x190/{player_id}.png"
 
-        # Scale Image
-        scaled_player_pixmap = player_pixmap.scaled(100, 100, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
+        #url we will pull logo from
+        logo_url = f"https://a.espncdn.com/i/teamlogos/nba/500/{self.player_team['abbreviation']}.png"
+
+        pixmap = self.get_image_from_url(logo_url)
+        scaled_player_pixmap = pixmap.scaled(100, 100, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
         self.player_logo.setPixmap(scaled_player_pixmap)
         self.player_logo.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        cpu_pixmap = QPixmap(f"team_logos/{self.cpu_team['abbreviation'].lower()}.png")  
+        #now we do same thing with cpu_team
+        logo_url = f"https://a.espncdn.com/i/teamlogos/nba/500/{self.cpu_team['abbreviation']}.png"
 
-        # Scale Image
-        scaled_cpu_pixmap = cpu_pixmap.scaled(100, 100, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
+        pixmap = self.get_image_from_url(logo_url)
+        scaled_cpu_pixmap = pixmap.scaled(100, 100, aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio)
         self.cpu_logo.setPixmap(scaled_cpu_pixmap)
         self.cpu_logo.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            
 
     #set scores
     def set_game_variables(self, player_score, cpu_score):
@@ -436,6 +444,20 @@ class SimulationScreen(QWidget):
 
         # print(self.game_info.player_score)
         # print(self.game_info.cpu_score)
+
+    # Returns pixmap from URL
+    def get_image_from_url(self, url):
+
+        response = requests.get(url)
+
+        #check to see if pull is successful
+        if response.status_code == 200:
+            image_data = response.content
+            pixmap = QPixmap()
+            pixmap.loadFromData(QByteArray(image_data))
+            return pixmap   #return pixmap
+        else:
+            print("Failed to Load image from URL")
 
 
     def log_play(self, text):
