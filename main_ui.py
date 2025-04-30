@@ -422,12 +422,110 @@ class SimulationScreen(QWidget):
         layout.addWidget(self.left_lineup_widget, 1, 0, 1, 1)
         layout.addWidget(self.right_lineup_widget, 1, 2, 1, 1)
 
+        ###############################
+        # SCOREBOARD
+        ###############################
+
         #add logos
         self.player_logo = QLabel()
         layout.addWidget(self.player_logo, 0, 0)
 
         self.cpu_logo = QLabel()
         layout.addWidget(self.cpu_logo, 0, 2)
+
+       # Scoreboard container
+        scoreboard_widget = QWidget()
+        scoreboard_layout = QHBoxLayout()
+        scoreboard_layout.setContentsMargins(10, 10, 10, 10)
+        scoreboard_widget.setLayout(scoreboard_layout)
+
+        scoreboard_widget.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 180);
+            border-radius: 15px;
+        """)
+
+        # ========== LEFT (You) ==========
+        left_box = QVBoxLayout()
+
+        you_label = QLabel("YOU")
+        you_label.setStyleSheet("color: white; font-size: 16px;")
+        you_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.player_logo = QLabel()
+        self.player_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.player_logo.setStyleSheet("background-color: transparent;")
+
+        self.player_score = QLabel("0")
+        self.player_score.setStyleSheet("""
+            background-color: white;
+            color: black;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 4px 12px;
+            border-radius: 8px;
+        """)
+        self.player_score.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        left_box.addWidget(you_label)
+        left_box.addWidget(self.player_logo)
+        left_box.addWidget(self.player_score)
+
+        # ========== CENTER (Time) ==========
+        center_box = QVBoxLayout()
+
+        time_label = QLabel("TIME")
+        time_label.setStyleSheet("color: white; font-size: 16px;")
+        time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.clock_display = QLabel("12:00 Q1")
+        self.clock_display.setStyleSheet("""
+            background-color: white;
+            color: black;
+            font-size: 16px;
+            padding: 4px 12px;
+            border-radius: 8px;
+        """)
+        self.clock_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        center_box.addWidget(time_label)
+        center_box.addWidget(self.clock_display)
+
+        # ========== RIGHT (CPU) ==========
+        right_box = QVBoxLayout()
+
+        cpu_label = QLabel("CPU")
+        cpu_label.setStyleSheet("color: white; font-size: 16px;")
+        cpu_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.cpu_logo = QLabel()
+        self.cpu_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.cpu_logo.setStyleSheet("background-color: transparent;")
+
+        self.cpu_score = QLabel("0")
+        self.cpu_score.setStyleSheet("""
+            background-color: white;
+            color: black;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 4px 12px;
+            border-radius: 8px;
+        """)
+        self.cpu_score.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        right_box.addWidget(cpu_label)
+        right_box.addWidget(self.cpu_logo)
+        right_box.addWidget(self.cpu_score)
+
+        # Add all three to scoreboard layout
+        scoreboard_layout.addLayout(left_box)
+        scoreboard_layout.addStretch()
+        scoreboard_layout.addLayout(center_box)
+        scoreboard_layout.addStretch()
+        scoreboard_layout.addLayout(right_box)
+
+        # Place scoreboard at the top center of the grid
+        layout.addWidget(scoreboard_widget, 0, 1, 1, 1)
+
 
     #update selected teams (called from start) and sets variable to dictionary
     def update_player_team(self, player_team):
@@ -468,9 +566,6 @@ class SimulationScreen(QWidget):
         print(f"Player's Lineup: {self.player_lineup}")
         self.player_stats = self.get_clutch_dict(player_lineup) # Put stats in our own dictionary
 
-        #calls function to add player images
-        self.add_headshots()
-        
 
     def set_cpu_lineup(self, cpu_lineup):
         self.cpu_lineup = cpu_lineup
@@ -547,6 +642,7 @@ class SimulationScreen(QWidget):
     def set_game_variables(self, player_score, cpu_score):
         self.game_info.set_player_score(player_score)
         self.game_info.set_cpu_score(cpu_score)
+        self.update_scoreboard()
 
         # print(self.game_info.player_score)
         # print(self.game_info.cpu_score)
@@ -611,8 +707,17 @@ class SimulationScreen(QWidget):
 
         return clutch_dict
     
-    def add_headshots(self):
-        nothing = 0
+    #update scoreborard
+    def update_scoreboard(self):
+        self.player_score.setText(str(self.game_info.player_score))
+        self.cpu_score.setText(str(self.game_info.cpu_score))
+
+        if self.game_info.play_clock < 60:
+            self.clock_display.setText(f"00:{self.game_info.play_clock} Q4")
+        else:
+            self.clock_display.setText(f"01:00 Q4")
+
+
 
     def log_play(self, text):
         self.play_log.append(text)
