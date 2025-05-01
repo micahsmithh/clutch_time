@@ -165,6 +165,7 @@ class StartScreen(QWidget):
 
         self.simulation_screen.set_player_lineup(player_selected_players)
         self.simulation_screen.set_cpu_lineup(cpu_lineup)
+        self.simulation_screen.set_player_actions()
         
 
         # Switch to index 1: SimulationScreen
@@ -220,7 +221,7 @@ class LineupSelectionWindow(QWidget):
             # set default from last game's starting lineup
             dropdown.setCurrentText(player_starters[i])
 
-            self.dropdowns.append(dropdown)         #grabs dropdown value to list
+            self.dropdowns.append(dropdown)         # Adds dropdown value to list
             self.layout.addWidget(dropdown, i, 1)
         
 
@@ -330,11 +331,11 @@ class SimulationScreen(QWidget):
         # layout.addWidget(label, 0, 0, 1, 2)
 
         # Back Button (Switch back to Start Screen)
-        back_button = QPushButton("Back to Main Menu")
+        back_button = QPushButton("Exit Simulation")
         back_button.setFont(QFont("Helvetica", 14))
-        back_button.setStyleSheet("background-color: blue; color: white; padding: 10px;")
+        back_button.setStyleSheet("background-color: red; color: white; padding: 10px;")
         back_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(0))
-        layout.addWidget(back_button, 3, 0, 1, 3)
+        layout.addWidget(back_button, 3, 0, 1, 4)
 
 
 
@@ -415,36 +416,37 @@ class SimulationScreen(QWidget):
             padding: 2px;
         """)
 
-        # Add to the main grid layout
-        layout.addLayout(self.left_lineup, 1, 0, 1, 1) 
-        layout.addLayout(self.center_log, 1, 1, 2, 1)   # spans 2 rows 1 columns
-        layout.addLayout(self.right_lineup, 1, 2, 1, 1)
+        # Add to the main grid layout 
+        layout.addLayout(self.center_log, 1, 2, 2, 1)   # spans 2 rows 1 columns
+        layout.addLayout(self.left_lineup, 1, 0, 1, 1)
         layout.addWidget(self.left_lineup_widget, 1, 0, 1, 1)
-        layout.addWidget(self.right_lineup_widget, 1, 2, 1, 1)
+        layout.addLayout(self.right_lineup, 1, 3, 1, 1)
+        layout.addWidget(self.right_lineup_widget, 1, 3, 1, 1)
 
         ###############################
         # SCOREBOARD
         ###############################
 
-        #add logos
+        # Add logos
         self.player_logo = QLabel()
         layout.addWidget(self.player_logo, 0, 0)
 
         self.cpu_logo = QLabel()
         layout.addWidget(self.cpu_logo, 0, 2)
 
-       # Scoreboard container
+       # Scoreboard Container
         scoreboard_widget = QWidget()
         scoreboard_layout = QHBoxLayout()
         scoreboard_layout.setContentsMargins(10, 10, 10, 10)
         scoreboard_widget.setLayout(scoreboard_layout)
-
+        
+        # Setting Color and Radius
         scoreboard_widget.setStyleSheet("""
             background-color: rgba(0, 0, 0, 180);
             border-radius: 15px;
         """)
 
-        # ========== LEFT (You) ==========
+        # ----------- PLAYER SIDE -------------
         left_box = QVBoxLayout()
 
         you_label = QLabel("YOU")
@@ -470,7 +472,7 @@ class SimulationScreen(QWidget):
         left_box.addWidget(self.player_logo)
         left_box.addWidget(self.player_score)
 
-        # ========== CENTER (Time) ==========
+        # ----------- Middle -------------
         center_box = QVBoxLayout()
 
         time_label = QLabel("TIME")
@@ -490,7 +492,7 @@ class SimulationScreen(QWidget):
         center_box.addWidget(time_label)
         center_box.addWidget(self.clock_display)
 
-        # ========== RIGHT (CPU) ==========
+        # ----------- CPU SIDE -------------
         right_box = QVBoxLayout()
 
         cpu_label = QLabel("CPU")
@@ -524,8 +526,39 @@ class SimulationScreen(QWidget):
         scoreboard_layout.addLayout(right_box)
 
         # Place scoreboard at the top center of the grid
-        layout.addWidget(scoreboard_widget, 0, 1, 1, 1)
+        layout.addWidget(scoreboard_widget, 0, 1, 1, 2)
 
+        ###############################
+        # GAME ACTIONS
+        ###############################
+
+        # Player Action Container
+        player_action_widget = QWidget()
+        player_action_layout = QVBoxLayout()
+        player_action_layout.setContentsMargins(5, 5, 5, 5)
+        player_action_widget.setLayout(player_action_layout)
+
+        player_action_widget.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 180);
+            border-radius: 5px;
+        """)
+
+        # Player Actions Dropdowns
+        self.player_select = QComboBox()
+        self.player_actions = QComboBox()
+
+        # Label for Actions
+        self.player_action_text = QLabel("Offensive Action")
+        self.player_action_text.setFont(QFont("Helvetica", 13))
+        self.player_action_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Add Widgets to Player Action Layout
+        player_action_layout.addWidget(self.player_action_text)
+        player_action_layout.addWidget(self.player_actions)
+        player_action_layout.addWidget(self.player_select)
+
+
+        layout.addWidget(player_action_widget, 1, 1, 1, 1)
 
     #update selected teams (called from start) and sets variable to dictionary
     def update_player_team(self, player_team):
@@ -611,7 +644,7 @@ class SimulationScreen(QWidget):
 
         pixmap = self.get_image_from_url(logo_url)
         scaled_pixmap = pixmap.scaled(
-            100, 100,
+            80, 80,
             aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio,
             transformMode=Qt.TransformationMode.SmoothTransformation
         )
@@ -630,12 +663,16 @@ class SimulationScreen(QWidget):
 
         pixmap = self.get_image_from_url(logo_url)
         scaled_pixmap = pixmap.scaled(
-            100, 100,
+            80, 80,
             aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio,
             transformMode=Qt.TransformationMode.SmoothTransformation
         )
         self.cpu_logo.setPixmap(scaled_pixmap)
         self.cpu_logo.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+
+        for i in range(60):
+            self.log_play(f"This is play number {i}")
             
 
     #set scores
@@ -716,6 +753,33 @@ class SimulationScreen(QWidget):
             self.clock_display.setText(f"00:{self.game_info.play_clock} Q4")
         else:
             self.clock_display.setText(f"01:00 Q4")
+
+    def set_player_actions(self):
+
+        # Clear Selections First
+        while (self.player_select.count() > 0):
+                self.player_select.removeItem(0)
+                
+        # if player possession(0), sets according widgets
+        if self.game_info.possession == 0:
+            self.player_action_text.setText("Offensive Action")
+
+            self.player_select.addItem("Select Shooter")
+            self.player_select.addItems(self.player_lineup) # Add player's players
+
+            self.player_actions.addItem("Choose Offensive Play")
+            self.player_actions.addItems(["Shoot a Three", "Shoot a Two", "Call Timeout"])
+        else:
+            self.player_action_text.setText("Defensive Action")
+
+            self.player_select.addItem("Select Player to Foul")
+            self.player_select.addItems(self.cpu_lineup) # Add CPU's player
+
+            self.player_actions.addItem("Choose Defensive Play")
+            self.player_actions.addItems(["Foul", "No Foul"])
+            
+        self.player_select.model().item(0).setEnabled(False)
+        self.player_actions.model().item(0).setEnabled(False)
 
 
 
