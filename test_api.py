@@ -1,74 +1,42 @@
-from nba_api.stats.endpoints import teamgamelog, boxscoretraditionalv2
+from nba_api.stats.endpoints import LeagueGameFinder, BoxScoreAdvancedV2
 from nba_api.stats.static import teams
-import pandas as pd
+import numpy as np
+import time  # To handle rate limiting
 
-def get_team_id_from_abbreviation(abbreviation):
-    # Fetch the list of all NBA teams
-    all_teams = teams.get_teams()
-    
-    # Search for the team with the given abbreviation
-    for team in all_teams:
-        if team['abbreviation'] == abbreviation:
-            return team['id']
-    
-    # If no match is found, return None
-    return None
+# Get Cleveland's team ID
+cle_team = teams.find_team_by_abbreviation('OKC')
+cle_team_id = cle_team['id']
 
+# Define the season
+season = '2024-25'
 
+# Get all games for Cleveland
+game_finder = LeagueGameFinder(team_id_nullable=cle_team_id, season_nullable=season)
+games_data = game_finder.get_data_frames()[0]  # This returns a pandas DataFrame
 
-team = 'CLE'
-team_id = get_team_id_from_abbreviation(team)  # Cleveland Cavaliers
-season = '2024'  # 2024 season (you can change this to the relevant season)
+# Get unique game IDs
+game_ids = games_data['GAME_ID'].unique()
 
-# Fetch the regular season game log
-gamelog_regular = teamgamelog.TeamGameLog(team_id=team_id, season=season, season_type_all_star='Regular Season')
-games_regular = gamelog_regular.get_data_frames()[0]
+turnover_percentages = []
 
-# Fetch the playoff game log
-gamelog_playoffs = teamgamelog.TeamGameLog(team_id=team_id, season=season, season_type_all_star='Playoffs')
-games_playoffs = gamelog_playoffs.get_data_frames()[0]
-
-# Combine both regular season and playoff games
-games_combined = pd.concat([games_regular, games_playoffs], ignore_index=True)
-
-# Sort the combined games by GAME_DATE to get the most recent game
-games_combined['GAME_DATE'] = pd.to_datetime(games_combined['GAME_DATE'])  # Convert GAME_DATE to datetime format
-games_combined_sorted = games_combined.sort_values(by='GAME_DATE', ascending=False)
-
-# Get the last game (most recent one)
-if not games_combined_sorted.empty:
-    for _, game in games_combined_sorted.iterrows():
-        game_id = game['Game_ID']
-        print(f"Checking Game ID: {game_id}")
+for game_id in game_ids:
+    try:
+        # Fetch the advanced box score data
+        boxscore = BoxScoreAdvancedV2(game_id=game_id, start_period=1, end_period=4, start_range=0, end_range=2880)
+        team_stats = boxscore.get_data_frames()[1]  # 1 = TeamStats
+        cle_stats = team_stats[team_stats['TEAM_ID'] == cle_team_id]
         
-        # Fetch the box score for the current game
-        boxscore = boxscoretraditionalv2.BoxScoreTraditionalV2(game_id=game_id)
+        # Get the turnover percentage
+        tov_pct = cle_stats.iloc[0]['TM_TOV_PCT']
+        turnover_percentages.append(tov_pct)
+        
+        time.sleep(0.6)  # To avoid hitting rate limits
+    except Exception as e:
+        print(f"Error processing game {game_id}: {e}")
 
-        # Get player stats DataFrame
-        player_stats = boxscore.get_data_frames()[0]
-
-        team_starters = player_stats[
-            (player_stats['TEAM_ABBREVIATION'] == team) &
-            (player_stats['START_POSITION'].isin(['G', 'F', 'C']))
-        ]
-
-        # Filter players who have a non-null START_POSITION (they are the starters)
-        # for _, player in player_stats.iterrows():
-        #     if player['TEAM_ABBREVIATION'] == team and player['START_POSITION'] in ['G', 'F', 'C'] :
-        #         team_starters._append(player)
-        #starters = player_stats[player_stats['START_POSITION'].notnull()]
-
-        # Further filter by team (optional, if you want just Cavs)
-        #team_starters = starters[starters['TEAM_ABBREVIATION'] == team]
-
-        # If team_starters is not empty, display the starting 5 and break out of the loop
-        if not team_starters.empty:
-            print(f"Found starters for Game ID: {game_id}")
-            print(f"Game details:\n{game}")
-            print(f"Game ID = {game_id}")
-            print(team_starters[['PLAYER_NAME', 'START_POSITION']])
-            break  # exit loops when starters are found
-    else:
-        print(f"No valid starters found in the recent games for {team}.")
+# Calculate and print season average
+if turnover_percentages:
+    avg_tov_pct = np.mean(turnover_percentages)
+    print(f"Cleveland's average turnover percentage for {season}: {avg_tov_pct:.2f}%")
 else:
-    print(f"No games found for {team}.")
+    print("No data available.")

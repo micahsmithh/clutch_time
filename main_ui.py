@@ -1,13 +1,12 @@
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox, QHBoxLayout, QTextEdit, QSizePolicy, QLineEdit
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox, QHBoxLayout, QTextEdit, QLineEdit
 from PyQt6.QtGui import QFont, QPixmap, QPainter, QDoubleValidator, QValidator, QFontDatabase, QFont
 from PyQt6.QtCore import Qt, QByteArray
-import sys
-from nba_api.stats.endpoints import playercareerstats, teamgamelog, boxscoretraditionalv2, LeagueDashPlayerClutch
+from nba_api.stats.endpoints import TeamEstimatedMetrics, teamgamelog, boxscoretraditionalv2, LeagueDashPlayerClutch
 from nba_api.stats.static import players, teams
 from nba_api.stats.endpoints import commonteamroster
 import pandas as pd
 from game import game
-import requests
+import requests, random, sys
 
 class StartScreen(QWidget):
     def __init__(self, stacked_widget, sim_screen):
@@ -360,6 +359,8 @@ class SimulationScreen(QWidget):
         self.cpu_lineup = []
         self.player_stats = {}
         self.cpu_stats = {}
+        self.player_team_stats = {}
+        self.cpu_team_stats = {}
 
         layout = QGridLayout()
         self.setLayout(layout)
@@ -691,6 +692,8 @@ class SimulationScreen(QWidget):
 
         print(f"Player's Lineup: {self.player_lineup}")
         self.player_stats = self.get_clutch_dict(player_lineup) # Put stats in our own dictionary
+        self.player_team_stats = self.get_team_stats_dict(self.player_team['full_name']) # Put team stats in dictionary
+        #print(f"{self.player_team['full_name']}'s stats are : {self.player_team_stats}")
 
 
     def set_cpu_lineup(self, cpu_lineup):
@@ -715,6 +718,8 @@ class SimulationScreen(QWidget):
 
         print(f"CPU's Lineup: {self.cpu_lineup}")
         self.cpu_stats = self.get_clutch_dict(cpu_lineup) # Put stats in our own dictionary
+        self.cpu_team_stats = self.get_team_stats_dict(self.cpu_team['full_name'])
+        #print(f"{self.cpu_team['full_name']}'s stats are : {self.cpu_team_stats}")
 
     def update_team_logos(self):
         
@@ -837,6 +842,42 @@ class SimulationScreen(QWidget):
 
         return clutch_dict
     
+    def get_team_stats_dict(self, team_name):
+        # Define parameters
+        season = '2024-25' 
+        season_type = 'Playoffs'
+
+        # Call the endpoint
+        stats = TeamEstimatedMetrics(season=season, season_type=season_type)
+
+        # Get the data frame
+        df = stats.get_data_frames()[0]
+
+        # Filter for team
+        team_row = df[df['TEAM_NAME'] == team_name]
+        
+        # Get E_TM_TOV_PCT
+        if not team_row.empty:
+            team_stats_dict = {
+                'TOV_PCT' : team_row.iloc[0]['E_TM_TOV_PCT'],
+                'OREB_PCT' : team_row.iloc[0]['E_OREB_PCT'],
+                'DREB_PCT' : team_row.iloc[0]['E_DREB_PCT'],
+            } 
+            print(f"{team_name} stats {team_stats_dict}")
+            return team_stats_dict
+        elif team_name == "Los Angeles Clippers":
+            team_row = df[df['TEAM_NAME'] == "LA Clippers"]
+
+            team_stats_dict = {
+                'TOV_PCT' : team_row.iloc[0]['E_TM_TOV_PCT'],
+                'OREB_PCT' : team_row.iloc[0]['E_OREB_PCT'],
+                'DREB_PCT' : team_row.iloc[0]['E_DREB_PCT'],
+            } 
+            print(f"LA Clippers stats {team_stats_dict}")
+            return team_stats_dict
+        else:
+            print(f"{team_name} data not found")
+
     #update scoreborard
     def update_scoreboard(self):
         self.player_score.setText(str(self.game_info.player_score))
@@ -878,7 +919,7 @@ class SimulationScreen(QWidget):
 
         self.clock_used.clear()
         self.clock_used.setStyleSheet("")
-        self.clock_used.setValidator(QDoubleValidator(0, self.game_info.shot_clock, 1))
+        self.clock_used.setValidator(QDoubleValidator(0, self.game_info.shot_clock if self.game_info.shot_clock < self.game_info.play_clock else self.game_info.play_clock, 1))
 
         self.player_select.model().item(0).setEnabled(False)
         self.player_actions.model().item(0).setEnabled(False)
@@ -894,7 +935,7 @@ class SimulationScreen(QWidget):
             print(f"Valid Input ")
     
     def sim_button_clicked(self):
-        print("Click")
+        print(self.player_team)
 
         player_action = self.player_actions.currentText()
 
@@ -926,6 +967,7 @@ class SimulationScreen(QWidget):
             match player_action:
                 case "Shoot a Two":
                     print ("Two")
+                    self.handle_offensive_action("two", shooter, float(text))
                 case "Shoot a Three":
                     print ("Three")
                 case "Call Timeout":
@@ -955,6 +997,19 @@ class SimulationScreen(QWidget):
 
     def log_play(self, text):
         self.play_log.append(text)
+
+    def handle_offensive_action(self, action, player, time):
+
+        if action == "two":
+            stats = self.player_stats[player]
+            print(f"{player} is taking a {action} in {time} s")
+
+            if random.random() < stats['FG2_PCT']:
+                print(f"{player} made it with {stats['FG2_PCT']} probablility")
+            else:
+                print("missed")
+
+
 
 
     # def run_simulation(self):

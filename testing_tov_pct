@@ -1,0 +1,24 @@
+from nba_api.stats.endpoints import TeamEstimatedMetrics
+import pandas as pd
+
+# Define parameters
+season = '2024-25'  # or your target season
+season_type = 'Regular Season'  # or 'Playoffs'
+
+# Call the endpoint
+metrics = TeamEstimatedMetrics(season=season, season_type=season_type)
+
+# Get the DataFrame
+df = metrics.get_data_frames()[0]
+
+print(df['TEAM_NAME'].unique())
+
+# Filter for Cleveland Cavaliers
+cavs_row = df[df['TEAM_NAME'] == 'Los Angeles Clippers']
+
+# Extract E_TM_TOV_PCT
+if not cavs_row.empty:
+    e_tm_tov_pct = cavs_row.iloc[0]['E_TM_TOV_PCT']
+    print(f"Cleveland Cavaliers' E_TM_TOV_PCT for {season} ({season_type}): {e_tm_tov_pct:.2f}%")
+else:
+    print("Cleveland Cavaliers data not found.")
