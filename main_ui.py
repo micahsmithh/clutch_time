@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox, QHBoxLayout, QTextEdit, QSizePolicy
-from PyQt6.QtGui import QFont, QPixmap, QPainter
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox, QHBoxLayout, QTextEdit, QSizePolicy, QLineEdit
+from PyQt6.QtGui import QFont, QPixmap, QPainter, QDoubleValidator, QValidator, QFontDatabase, QFont
 from PyQt6.QtCore import Qt, QByteArray
 import sys
 from nba_api.stats.endpoints import playercareerstats, teamgamelog, boxscoretraditionalv2, LeagueDashPlayerClutch
@@ -467,6 +467,9 @@ class SimulationScreen(QWidget):
         # SCOREBOARD
         ###############################
 
+        font_id = QFontDatabase.addApplicationFont("fonts/digital-7.TTF")  # path to .ttf file
+        family = QFontDatabase.applicationFontFamilies(font_id)[0]
+
         # Add logos
         self.player_logo = QLabel()
         layout.addWidget(self.player_logo, 0, 0)
@@ -492,7 +495,7 @@ class SimulationScreen(QWidget):
         you_label = QLabel("YOU")
         you_label.setStyleSheet("color: white; font-size: 16px;")
         you_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
+        
         self.player_logo = QLabel()
         self.player_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.player_logo.setStyleSheet("background-color: transparent;")
@@ -506,7 +509,7 @@ class SimulationScreen(QWidget):
             padding: 4px 12px;
             border-radius: 8px;
         """)
-        self.player_score.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.player_score.setAlignment(Qt.AlignmentFlag.AlignCenter)               
 
         left_box.addWidget(you_label)
         left_box.addWidget(self.player_logo)
@@ -519,18 +522,36 @@ class SimulationScreen(QWidget):
         time_label.setStyleSheet("color: white; font-size: 16px;")
         time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.clock_display = QLabel("12:00 Q1")
+        self.clock_display = QLabel("1:00 Q4")
         self.clock_display.setStyleSheet("""
-            background-color: white;
-            color: black;
-            font-size: 16px;
+            color: rgb(255, 255, 51);
+            font-size: 30px;
             padding: 4px 12px;
             border-radius: 8px;
         """)
         self.clock_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        center_box.addWidget(time_label)
+        # Shot Clock Label
+        self.shot_clock_display = QLabel("24")
+        self.shot_clock_display.setStyleSheet("""
+            color: red;
+            font-size: 30px;
+            padding: 4px 12px;
+            border-radius: 8px;
+        """)
+        self.shot_clock_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.shot_clock_display.setFixedWidth(60)
+        self.shot_clock_display.setFixedHeight(60)
+
+        
+        self.clock_display.setFont(QFont(family))
+        self.shot_clock_display.setFont(QFont(family))
+        
+
+        #center_box.addWidget(time_label)
         center_box.addWidget(self.clock_display)
+        center_box.addWidget(self.shot_clock_display)
+        center_box.setAlignment(self.shot_clock_display, Qt.AlignmentFlag.AlignHCenter)
 
         # ----------- CPU SIDE -------------
         right_box = QVBoxLayout()
@@ -586,6 +607,35 @@ class SimulationScreen(QWidget):
         # Player Actions Dropdowns
         self.player_select = QComboBox()
         self.player_actions = QComboBox()
+        self.clock_used = QComboBox()
+
+        self.clock_used = QLineEdit()
+        self.clock_used.setFont(QFont("Helvetica", 12))
+        self.validator = QDoubleValidator(.5, self.game_info.shot_clock, 1)
+        self.clock_used.setValidator(self.validator)
+        self.clock_used.setPlaceholderText("Clock Used (seconds)")
+        self.clock_used.textChanged.connect(self.clock_used_entered)
+
+        # Sim Button
+        sim_button = QPushButton("Sim")
+        sim_button.setFont(QFont("Helvetica", 12))
+        sim_button.setStyleSheet("""
+            QPushButton {
+                background-color: green;
+                color: white;
+                padding: 10px;
+                border: none;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: darkgreen;
+            }
+            QPushButton:pressed {
+                background-color: lightgreen;
+                color: black;
+            }
+        """)
+        sim_button.clicked.connect(self.sim_button_clicked)  #will start simulation
 
         # Label for Actions
         self.player_action_text = QLabel("Offensive Action")
@@ -596,6 +646,9 @@ class SimulationScreen(QWidget):
         player_action_layout.addWidget(self.player_action_text)
         player_action_layout.addWidget(self.player_actions)
         player_action_layout.addWidget(self.player_select)
+        player_action_layout.addWidget(self.clock_used)
+        player_action_layout.addWidget(sim_button)
+        
 
 
         layout.addWidget(player_action_widget, 1, 1, 1, 1)
@@ -789,6 +842,10 @@ class SimulationScreen(QWidget):
         self.player_score.setText(str(self.game_info.player_score))
         self.cpu_score.setText(str(self.game_info.cpu_score))
 
+        # Update Shot Clock
+        self.shot_clock_display.setText(str(self.game_info.shot_clock))
+
+        # Update Game Clock
         if self.game_info.play_clock < 60:
             self.clock_display.setText(f"00:{self.game_info.play_clock} Q4")
         else:
@@ -799,6 +856,7 @@ class SimulationScreen(QWidget):
         # Clear Selections First
         while (self.player_select.count() > 0):
                 self.player_select.removeItem(0)
+                self.player_actions.removeItem(0)
                 
         # if player possession(0), sets according widgets
         if self.game_info.possession == 0:
@@ -817,20 +875,39 @@ class SimulationScreen(QWidget):
 
             self.player_actions.addItem("Choose Defensive Play")
             self.player_actions.addItems(["Foul", "No Foul"])
-            
+        
+
+        self.clock_used.setValidator(QDoubleValidator(0, self.game_info.shot_clock, 1))
+
         self.player_select.model().item(0).setEnabled(False)
         self.player_actions.model().item(0).setEnabled(False)
 
-
+    def clock_used_entered(self):
+        text = self.clock_used.text()
+        state = self.validator.validate(text, 0)[0]
+        if state != QValidator.State.Acceptable:
+            self.clock_used.setStyleSheet("border: 2px solid red;")
+            print("Invalid Input")
+        else:
+            self.clock_used.setStyleSheet("")
+            print(f"Valid Input ")
+    
+    def sim_button_clicked(self):
+        print("Click")
 
     def log_play(self, text):
         self.play_log.append(text)
 
 
-    # def game_logic(self):
+    # def run_simulation(self):
 
     #     # checks if player has possession
-    #     if self.game_info.possession == 0:
+    #     if self.game_info.play_clock > 0:
+        
+    #     # Check for Overtime
+    #     elif self.game_info.player_score == self.game_info.cpu_score:
+            
+             
 
 
 
