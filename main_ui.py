@@ -127,7 +127,37 @@ class StartScreen(QWidget):
         cpu_team_layout.addWidget(self.cpu_score_box)
 
 
-        
+        #############################################################
+        # Possession Selection
+        #############################################################
+
+        self.arrow_left = "←"
+        self.arrow_right = "→"
+        self.current_direction = "left"
+
+        arrow_layout = QVBoxLayout()
+        arrow_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        arrow_widget = QWidget()
+        arrow_widget.setLayout(arrow_layout)
+
+        # Possession Label
+        self.possession_label = QLabel("Possession")
+        self.possession_label.setFont(QFont("Helvetica", 14, QFont.Weight.Bold))
+        self.possession_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Arrow Button
+        self.arrow_button = QPushButton(self.arrow_left)
+        self.arrow_button.setFont(QFont("Helvetica", 24))
+        self.arrow_button.setFixedSize(50, 50)
+        self.arrow_button.clicked.connect(self.toggle_arrow)
+
+        # Add label and arrow to layout
+        arrow_layout.addWidget(self.possession_label)
+        arrow_layout.addWidget(self.arrow_button, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        grid_layout.addWidget(arrow_widget, 2, 1)
+
+
 
         #############################################################
         # QUIT BUTTON
@@ -180,6 +210,16 @@ class StartScreen(QWidget):
     def cpu_team_changed(self):
         selected_team = self.cpu_team_select.currentText()
         self.simulation_screen.update_cpu_team(selected_team)
+
+    def toggle_arrow(self):
+        if self.current_direction == "left":
+            self.arrow_button.setText(self.arrow_right)
+            self.current_direction = "right"
+            self.simulation_screen.game_info.set_possession(1)
+        else:
+            self.arrow_button.setText(self.arrow_left)
+            self.current_direction = "left"
+            self.simulation_screen.game_info.set_possession(0)
 
 class LineupSelectionWindow(QWidget):
     def __init__(self, player_team_id, cpu_team_id, callback_function):
