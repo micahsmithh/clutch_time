@@ -10,7 +10,7 @@ class game:
         self.cpu_score = cpu_score
         self.play_clock = 60        #60 seconds
         self.shot_clock = 24
-        self.possession = random.randint(0,1) if possession is None else possession # 0 will represnt player possession and 1 will represent cpu possession
+        self.possession = 0 # 0 will represnt player possession and 1 will represent cpu possession
     
     def set_player_score(self, score):
         self.player_score = score

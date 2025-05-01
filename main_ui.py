@@ -607,11 +607,11 @@ class SimulationScreen(QWidget):
         # Player Actions Dropdowns
         self.player_select = QComboBox()
         self.player_actions = QComboBox()
-        self.clock_used = QComboBox()
 
         self.clock_used = QLineEdit()
         self.clock_used.setFont(QFont("Helvetica", 12))
-        self.validator = QDoubleValidator(.5, self.game_info.shot_clock, 1)
+        self.validator = QDoubleValidator(0, self.game_info.shot_clock, 1)
+        self.validator.setNotation(QDoubleValidator.Notation.StandardNotation) 
         self.clock_used.setValidator(self.validator)
         self.clock_used.setPlaceholderText("Clock Used (seconds)")
         self.clock_used.textChanged.connect(self.clock_used_entered)
@@ -854,9 +854,8 @@ class SimulationScreen(QWidget):
     def set_player_actions(self):
 
         # Clear Selections First
-        while (self.player_select.count() > 0):
-                self.player_select.removeItem(0)
-                self.player_actions.removeItem(0)
+        self.player_select.clear()
+        self.player_actions.clear()
                 
         # if player possession(0), sets according widgets
         if self.game_info.possession == 0:
@@ -866,7 +865,7 @@ class SimulationScreen(QWidget):
             self.player_select.addItems(self.player_lineup) # Add player's players
 
             self.player_actions.addItem("Choose Offensive Play")
-            self.player_actions.addItems(["Shoot a Three", "Shoot a Two", "Call Timeout"])
+            self.player_actions.addItems(["Shoot a Two", "Shoot a Three", "Call Timeout"])
         else:
             self.player_action_text.setText("Defensive Action")
 
@@ -877,6 +876,8 @@ class SimulationScreen(QWidget):
             self.player_actions.addItems(["Foul", "No Foul"])
         
 
+        self.clock_used.clear()
+        self.clock_used.setStyleSheet("")
         self.clock_used.setValidator(QDoubleValidator(0, self.game_info.shot_clock, 1))
 
         self.player_select.model().item(0).setEnabled(False)
@@ -894,6 +895,63 @@ class SimulationScreen(QWidget):
     
     def sim_button_clicked(self):
         print("Click")
+
+        player_action = self.player_actions.currentText()
+
+        # Check Clock
+        text = self.clock_used.text()
+        state = self.validator.validate(text, 0)[0]
+
+        # Don't need Time if No Foul is Selected
+        if player_action != "No Foul":
+            if state == QValidator.State.Acceptable:
+                print(f"Time Burned = {float(text)}")
+            else:
+                QMessageBox.warning(self, "Error", "Please Select Time to Come off Clock")
+                return
+
+        # Offensive Possession
+        if self.game_info.possession == 0:
+            shooter = self.player_select.currentText()
+
+            # Check Offensive Player
+            if shooter in self.player_lineup:
+                print(f"Shooter is {shooter}")
+            else:
+                QMessageBox.warning(self, "Error", "Please Select Shooter")
+                return
+                
+
+            # Check offensive action
+            match player_action:
+                case "Shoot a Two":
+                    print ("Two")
+                case "Shoot a Three":
+                    print ("Three")
+                case "Call Timeout":
+                    print("Timeout")
+                case _:
+                    QMessageBox.warning(self, "Error", "Select Offensive Action")
+                    return
+        # Defensive Possession       
+        else:
+            # Check Defensive Play
+            if player_action == "No Foul":
+                print("No Foul")
+            elif player_action == "Foul":
+                player = self.player_select.currentText()
+
+                # Check Player being Fouled
+                if player in self.cpu_lineup:
+                    print(f"Fouling {player}")
+                else:
+                    QMessageBox.warning(self, "Error", "Please Select Player to Foul")
+                    return
+            else:
+                QMessageBox.warning(self, "Error", "Please Select Defensive Action")
+                return
+                    
+
 
     def log_play(self, text):
         self.play_log.append(text)
