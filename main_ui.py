@@ -972,7 +972,7 @@ class SimulationScreen(QWidget):
             self.player_select.addItems(self.player_lineup) # Add player's players
 
             self.player_actions.addItem("Choose Offensive Play")
-            self.player_actions.addItems(["Shoot a Two", "Shoot a Three", "Call Timeout"])
+            self.player_actions.addItems(["Shoot a Two", "Shoot a Three"])
         else:
             self.player_action_text.setText("Defensive Action")
 
@@ -1045,8 +1045,8 @@ class SimulationScreen(QWidget):
                 case "Shoot a Three":
                     print ("Three")
                     self.handle_offensive_action("three", shooter, int(text))
-                case "Call Timeout":
-                    print("Timeout")
+                # case "Call Timeout":
+                #     print("Timeout")
                 case _:
                     QMessageBox.warning(self, "Error", "Select Offensive Action")
                     return
@@ -1082,12 +1082,17 @@ class SimulationScreen(QWidget):
         
         # Put time high unless needs to be changed
         cpu_time = 100
+        score_diff = self.game_info.player_score-self.game_info.cpu_score
 
-        if self.game_info.shot_clock >= self.game_info.game_clock-3 and self.game_info.player_score > self.game_info.cpu_score and self.game_info.player_score-self.game_info.cpu_score < 5:  # CPU down less than 5 with shot clock off or 3 second difference
+        if self.game_info.shot_clock >= self.game_info.game_clock-3 and score_diff > 0 and score_diff < 6:  # CPU down less than 6 with shot clock off or 3 second difference
             if self.game_info.shot_clock > 15:
                 cpu_time = random.randint(3, 13)
-            else: 
-                cpu_time = random.randint(1, self.game_info.shot_clock)
+            elif self.game_info.shot_clock > 10 and score_diff < 4: 
+                cpu_time = random.randint(1, 5)
+            elif self.game_info.shot_clock > 5 and score_diff < 4: 
+                cpu_time = random.randint(1, 4)
+            elif self.game_info.shot_clock > 1 and score_diff < 4: 
+                cpu_time = random.randint(1, self.game_info.shot_clock-1)
 
         if cpu_time <= time:
             # Check for turnover
@@ -1280,7 +1285,8 @@ class SimulationScreen(QWidget):
         
         # Check if timer is up
         print(f"Game Clock at: {self.game_info.game_clock}")
-        if game_clock <= 0:
+        if self.game_info.game_clock <= 0:
+            print("In da loop")
             self.game_over()
 
 
