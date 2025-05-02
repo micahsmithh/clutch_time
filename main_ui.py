@@ -776,7 +776,7 @@ class SimulationScreen(QWidget):
         self.game_info.set_player_score(player_score)
         self.game_info.set_cpu_score(cpu_score)
         self.play_log.clear()
-        self.game_info.set_play_clock(60)
+        self.game_info.set_game_clock(60)
         self.game_info.set_shot_clock(24)
         self.update_scoreboard()
 
@@ -888,8 +888,8 @@ class SimulationScreen(QWidget):
         self.shot_clock_display.setText(str(self.game_info.shot_clock))
 
         # Update Game Clock
-        if self.game_info.play_clock < 60:
-            self.clock_display.setText(f"00:{self.game_info.play_clock} Q4")
+        if self.game_info.game_clock < 60:
+            self.clock_display.setText(f"00:{self.game_info.game_clock} Q4")
         else:
             self.clock_display.setText(f"01:00 Q4")
 
@@ -926,7 +926,7 @@ class SimulationScreen(QWidget):
 
         self.clock_used.clear()
         self.clock_used.setStyleSheet("")
-        self.clock_used.setValidator(QDoubleValidator(0, self.game_info.shot_clock if self.game_info.shot_clock < self.game_info.play_clock else self.game_info.play_clock, 1))
+        self.clock_used.setValidator(QDoubleValidator(0, self.game_info.shot_clock if self.game_info.shot_clock < self.game_info.game_clock else self.game_info.game_clock, 1))
 
         self.player_select.model().item(0).setEnabled(False)
         self.player_actions.model().item(0).setEnabled(False)
@@ -950,6 +950,7 @@ class SimulationScreen(QWidget):
         # Check Clock
         text = self.clock_used.text()
         state = self.validator.validate(text, 0)[0]
+        shooter = self.player_select.currentText()
 
         # Don't need Time if No Foul is Selected
         if player_action != "No Foul":
@@ -961,7 +962,6 @@ class SimulationScreen(QWidget):
 
         # Offensive Possession
         if self.game_info.possession == 0:
-            shooter = self.player_select.currentText()
 
             # Check Offensive Player
             if shooter in self.player_lineup:
@@ -989,12 +989,14 @@ class SimulationScreen(QWidget):
             # Check Defensive Play
             if player_action == "No Foul":
                 print("No Foul")
+                self.handle_defensive_action(player_action, shooter, 100) # Set to 100 just to not mess with defensive handling
             elif player_action == "Foul":
                 player = self.player_select.currentText()
 
                 # Check Player being Fouled
                 if player in self.cpu_lineup:
                     print(f"Fouling {player}")
+                    self.handle_defensive_action(player_action, shooter, float(text))
                 else:
                     QMessageBox.warning(self, "Error", "Please Select Player to Foul")
                     return
@@ -1005,20 +1007,18 @@ class SimulationScreen(QWidget):
 
 
     def log_play(self, play):
-        self.play_log.append(f"00:{self.game_info.play_clock}: {play}")
+        self.play_log.append(f"00:{self.game_info.game_clock}: {play}")
 
     def handle_offensive_action(self, action, player, time):
-        
         # Calculate Time
-        if time == self.game_info.play_clock or time == self.game_info.shot_clock:  # Run Clock Out
-            self.game_info.play_clock -= time
+        if time == self.game_info.game_clock or time == self.game_info.shot_clock:  # Run Clock Out
+            self.game_info.game_clock -= time
             
-            if self.game_info.play_clock <= 0:
+            if self.game_info.game_clock <= 0:
                 self.game_over()
+                return
         else:
-            self.game_info.play_clock -= time
-            
-
+            self.game_info.game_clock -= time
         
         stats = self.player_stats[player]
         make = False
@@ -1046,6 +1046,117 @@ class SimulationScreen(QWidget):
         self.handle_rebound(make)
         self.update_scoreboard()
 
+        if self.game_info.game_clock <= 0:
+            self.game_over()
+
+    def handle_defensive_action(self, action, player, time):
+
+        # For easier access to variable checking
+        p_score = self.game_info.player_score
+        c_score = self.game_info.cpu_score
+        shot_clock = self.game_info.shot_clock
+        game_clock = self.game_info.game_clock
+
+        # Cpu Variables
+        cpu_shooter = random.choice(self.cpu_lineup)
+        cpu_stats = self.cpu_stats[cpu_shooter]
+        cpu_shot = None
+        cpu_time = None
+        points = 0
+
+        # Fouling Time not Exact
+        # if action == "Foul":
+        #     if random.random() < .5:
+        #         time += random.randint(0, 2)
+        #     else:
+        #         time -= random.randint(0, 2)
+
+        # CPU logic
+        if shot_clock >= game_clock and c_score > p_score:  # CPU up with shot clock off
+            cpu_time = shot_clock
+        elif c_score == p_score-3 and game_clock < 10:      # CPU down 3 under 10 seconds
+            cpu_shot = "three"
+            cpu_time = random.randint(1, int(game_clock))
+        elif c_score > p_score:                             # CPU up 
+            if random.random() < .5:
+                cpu_shot = "three"
+            else:
+                cpu_shot = "two"
+            cpu_time = random.randint(15, 23)
+        elif c_score > p_score-3:                           # CPU down 2 or less or tied
+            if random.random() < .5:
+                cpu_shot = "three"
+            else:
+                cpu_shot = "two"
+
+            if shot_clock > 23:
+                cpu_time = random.randint(5, 23)
+            else:
+                cpu_time = random.randint(1, int(shot_clock))
+        else:                                               # CPU down more than 3
+            if random.random() < .5:
+                cpu_shot = "three"
+            else:
+                cpu_shot = "two"
+            if shot_clock > 15:
+                cpu_time = random.randint(5, 15)
+            else:
+                cpu_time = random.randint(1, 15)
+        make = False
+
+        # Compare time to cpu_time to see which action happens
+        if time < cpu_time and action == "Foul": # Player Action Occurs (Free Throws)
+            self.game_info.game_clock -= time
+            stats = self.cpu_stats[player]
+
+            # First Free Throw
+            if random.random() < stats['FT_PCT']:
+                points = 1
+                self.log_play(f"{player} makes free throw 1 of 2")
+                self.game_info.cpu_score += points
+                self.update_scoreboard()
+            else:
+                self.log_play(f"{player} misses free throw 1 of 2")
+            
+            # Second free throw
+            if random.random() < stats['FT_PCT']:
+                make = True
+                points = 1
+                self.log_play(f"{player} makes free throw 2 of 2")
+                self.game_info.cpu_score += points 
+            else:
+                self.log_play(f"{player} misses free throw 2 of 2")
+                make = False
+        else:   # CPU Action Occurs
+            self.game_info.game_clock -= cpu_time
+            
+            # Checkign Shot Type
+            if cpu_shot == "two":
+                if random.random() < cpu_stats['FG2_PCT']:
+                    make = True
+                    points = 2
+            elif cpu_shot == "three":
+                if random.random() < cpu_stats['FG3_PCT']:
+                    make = True
+                    points = 3
+            else:                   # CPU took no shot (only should occur if they can run time to 0)
+                if game_clock <= 0:
+                    self.game_over()
+                    return
+            if make:
+                self.log_play(f"{cpu_shooter} makes {cpu_shot} point shot")
+                # Update Scoreboard
+                self.game_info.cpu_score += points  
+            else:
+                self.log_play(f"{cpu_shooter} misses {cpu_shot} point shot")
+
+        self.handle_rebound(make)
+        self.update_scoreboard()
+        
+        if game_clock <= 0:
+            self.game_over()
+
+
     def handle_rebound(self, make):
         if make:
             self.game_info.set_shot_clock(24)   # Reset Shot Clock
@@ -1066,9 +1177,9 @@ class SimulationScreen(QWidget):
 
             # Handle if Offensive Rebound Occurs
             if random.random() < p_oreb:
-                self.game_info.set_shot_clock(24)
+                self.game_info.set_shot_clock(14)
                 self.log_play(f"{o_team} offensive rebound")
-            else:
+            else:   # Defensive Rebound
                 self.game_info.set_shot_clock(24)   # Reset Shot Clock
                 self.game_info.set_possession(not(self.game_info.possession)) # Possession Changes
                 self.log_play(f"{d_team} defensive rebound")
@@ -1078,6 +1189,8 @@ class SimulationScreen(QWidget):
             
 
     def game_over(self):
+        self.game_info.shot_clock = 0
+        self.update_scoreboard()
         self.log_play("Game Over")
         self.sim_button.setEnabled(False)
         self.player_select.setEnabled(False)
@@ -1089,7 +1202,7 @@ class SimulationScreen(QWidget):
     # def run_simulation(self):
 
     #     # checks if player has possession
-    #     if self.game_info.play_clock > 0:
+    #     if self.game_info.game_clock > 0:
         
     #     # Check for Overtime
     #     elif self.game_info.player_score == self.game_info.cpu_score:
