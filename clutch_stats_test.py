@@ -1,4 +1,4 @@
-from nba_api.stats.endpoints import LeagueDashPlayerClutch
+from nba_api.stats.endpoints import LeagueDashPlayerClutch, leaguedashplayerstats
 import pandas as pd
 from nba_api.stats.static import players
 

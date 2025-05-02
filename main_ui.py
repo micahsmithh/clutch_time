@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox, QHBoxLayout, QTextEdit, QLineEdit
-from PyQt6.QtGui import QFont, QPixmap, QPainter, QDoubleValidator, QValidator, QFontDatabase, QFont
+from PyQt6.QtGui import QFont, QPixmap, QPainter, QIntValidator, QValidator, QFontDatabase, QFont 
 from PyQt6.QtCore import Qt, QByteArray
 from nba_api.stats.endpoints import TeamEstimatedMetrics, teamgamelog, boxscoretraditionalv2, LeagueDashPlayerClutch, LeagueDashPlayerStats
 from nba_api.stats.static import players, teams
@@ -611,8 +611,7 @@ class SimulationScreen(QWidget):
 
         self.clock_used = QLineEdit()
         self.clock_used.setFont(QFont("Helvetica", 12))
-        self.validator = QDoubleValidator(0, self.game_info.shot_clock, 1)
-        self.validator.setNotation(QDoubleValidator.Notation.StandardNotation) 
+        self.validator = QIntValidator(1, self.game_info.shot_clock)
         self.clock_used.setValidator(self.validator)
         self.clock_used.setPlaceholderText("Clock Used (seconds)")
         self.clock_used.textChanged.connect(self.clock_used_entered)
@@ -990,13 +989,14 @@ class SimulationScreen(QWidget):
 
         self.clock_used.clear()
         self.clock_used.setStyleSheet("")
-        self.clock_used.setValidator(QDoubleValidator(0, self.game_info.shot_clock if self.game_info.shot_clock < self.game_info.game_clock else self.game_info.game_clock, 1))
+        self.clock_used.setValidator(QIntValidator(0, self.game_info.shot_clock if self.game_info.shot_clock < self.game_info.game_clock else self.game_info.game_clock))
 
         self.player_select.model().item(0).setEnabled(False)
         self.player_actions.model().item(0).setEnabled(False)
 
     def clock_used_entered(self):
-        self.validator = QDoubleValidator(0, self.game_info.shot_clock, 1)
+        print(f"shot clock = {self.game_info.shot_clock}")
+        self.validator = QIntValidator(1, self.game_info.shot_clock)
         text = self.clock_used.text()
         state = self.validator.validate(text, 0)[0]
         if state != QValidator.State.Acceptable:
@@ -1019,7 +1019,7 @@ class SimulationScreen(QWidget):
         # Don't need Time if No Foul is Selected
         if player_action != "No Foul":
             if state == QValidator.State.Acceptable:
-                print(f"Time Burned = {float(text)}")
+                print(f"Time Burned = {int(text)}")
             else:
                 QMessageBox.warning(self, "Error", "Please Select Time to Come off Clock")
                 return
@@ -1039,10 +1039,10 @@ class SimulationScreen(QWidget):
             match player_action:
                 case "Shoot a Two":
                     print ("Two")
-                    self.handle_offensive_action("two", shooter, float(text))
+                    self.handle_offensive_action("two", shooter, int(text))
                 case "Shoot a Three":
                     print ("Three")
-                    self.handle_offensive_action("three", shooter, float(text))
+                    self.handle_offensive_action("three", shooter, int(text))
                 case "Call Timeout":
                     print("Timeout")
                 case _:
@@ -1060,7 +1060,7 @@ class SimulationScreen(QWidget):
                 # Check Player being Fouled
                 if player in self.cpu_lineup:
                     print(f"Fouling {player}")
-                    self.handle_defensive_action(player_action, shooter, float(text))
+                    self.handle_defensive_action(player_action, shooter, int(text))
                 else:
                     QMessageBox.warning(self, "Error", "Please Select Player to Foul")
                     return
@@ -1074,42 +1074,80 @@ class SimulationScreen(QWidget):
         self.play_log.append(f"00:{self.game_info.game_clock}: {play}")
 
     def handle_offensive_action(self, action, player, time):
-        # Calculate Time
-        if time == self.game_info.game_clock or time == self.game_info.shot_clock:  # Run Clock Out
-            self.game_info.game_clock -= time
-            
-            if self.game_info.game_clock <= 0:
-                self.game_over()
-                return
-        else:
-            self.game_info.game_clock -= time
         
-        stats = self.player_stats[player]
-        make = False
-        points = 0
+        # Put time high unless needs to be changed
+        cpu_time = 100
 
-        if action == "two":
-            if random.random() < stats['FG2_PCT']:
+        if self.game_info.shot_clock >= self.game_info.game_clock-3 and self.game_info.player_score > self.game_info.cpu_score and self.game_info.player_score-self.game_info.cpu_score < 5:  # CPU down less than 5 with shot clock off or 3 second difference
+            if self.game_info.shot_clock > 15:
+                cpu_time = random.randint(3, 13)
+            else: 
+                cpu_time = random.randint(1, self.game_info.shot_clock)
+
+        if cpu_time <= time:
+            self.game_info.game_clock -= cpu_time
+            # Fet player to be fouled
+            cpu_fouled_player = random.choice(self.player_lineup)
+            cpu_fouled_player_stats = self.player_stats[cpu_fouled_player]
+
+            # Free Throw Logic
+            if random.random() < cpu_fouled_player_stats['FT_PCT']:
+                points = 1
+                self.log_play(f"{cpu_fouled_player} makes free throw 1 of 2")
+                self.game_info.player_score += points
+                self.update_scoreboard()
+            else:
+                self.log_play(f"{cpu_fouled_player} misses free throw 1 of 2")
+            
+            # Second free throw
+            if random.random() < cpu_fouled_player_stats['FT_PCT']:
                 make = True
-                points = 2
-        elif action == "three":
-            if random.random() < stats['FG3_PCT']:
-                make = True
-                points = 3
-        else:
-            print(f"Unknown Action: {action}")
+                points = 1
+                self.log_play(f"{cpu_fouled_player} makes free throw 2 of 2")
+                self.game_info.player_score += points 
+            else:
+                self.log_play(f"{cpu_fouled_player} misses free throw 2 of 2")
+                make = False
+        else: # Player Controlled Action Occurs
+            # Calculate Time
+            if time == self.game_info.game_clock or time == self.game_info.shot_clock:  # Run Clock Out
+                self.game_info.game_clock -= time
+                
+                if self.game_info.game_clock <= 0:
+                    self.game_over()
+                    return
+            else:
+                self.game_info.game_clock -= time
+            
+            stats = self.player_stats[player]
+            make = False
+            points = 0
 
-        if make:
-            self.log_play(f"{player} makes {action} point shot")
+            if action == "two":
+                if random.random() < stats['FG2_PCT']:
+                    make = True
+                    points = 2
+            elif action == "three":
+                if random.random() < stats['FG3_PCT']:
+                    make = True
+                    points = 3
+            else:
+                print(f"Unknown Action: {action}")
 
-            # Update Scoreboard
-            self.game_info.player_score += points 
-        else:
-            self.log_play(f"{player} misses {action} point shot")
+            if make:
+                self.log_play(f"{player} makes {action} point shot")
 
+                # Update Scoreboard
+                self.game_info.player_score += points 
+            else:
+                self.log_play(f"{player} misses {action} point shot")
+
+        # Must handle rebounds and update scoreboard
         self.handle_rebound(make)
         self.update_scoreboard()
 
+        # Check if timer is up
+        print(f"Game Clock at: {self.game_info.game_clock}")
         if self.game_info.game_clock <= 0:
             self.game_over()
 
@@ -1140,7 +1178,7 @@ class SimulationScreen(QWidget):
             cpu_time = shot_clock
         elif c_score == p_score-3 and game_clock < 10:      # CPU down 3 under 10 seconds
             cpu_shot = "three"
-            cpu_time = random.randint(1, int(game_clock))
+            cpu_time = random.randint(1, game_clock)
         elif c_score > p_score:                             # CPU up 
             if random.random() < .5:
                 cpu_shot = "three"
@@ -1156,7 +1194,7 @@ class SimulationScreen(QWidget):
             if shot_clock > 23:
                 cpu_time = random.randint(5, 23)
             else:
-                cpu_time = random.randint(1, int(shot_clock))
+                cpu_time = random.randint(1, shot_clock)
         else:                                               # CPU down more than 3
             if random.random() < .5:
                 cpu_shot = "three"
@@ -1165,7 +1203,7 @@ class SimulationScreen(QWidget):
             if shot_clock > 15:
                 cpu_time = random.randint(5, 15)
             else:
-                cpu_time = random.randint(1, 15)
+                cpu_time = random.randint(1, shot_clock)
         make = False
 
         # Compare time to cpu_time to see which action happens
@@ -1214,9 +1252,12 @@ class SimulationScreen(QWidget):
             else:
                 self.log_play(f"{cpu_shooter} misses {cpu_shot} point shot")
 
+        # Handle rebounds and update scoreboard
         self.handle_rebound(make)
         self.update_scoreboard()
         
+        # Check if timer is up
+        print(f"Game Clock at: {self.game_info.game_clock}")
         if game_clock <= 0:
             self.game_over()
 
@@ -1252,11 +1293,43 @@ class SimulationScreen(QWidget):
                 self.log_play(f"{d_team} defensive rebound")
 
         self.set_player_actions()   # Set Player Actions
+    
 
+    def handle_cpu_fouls(self):
+        # First Free Throw
+        cpu_time = 100
+        cpu_fouled_player = random.choice(self.player_lineup)
+        cpu_fouled_player_stats = self.player_stats[cpu_fouled_player]
+
+        if self.game_info.shot_clock >= self.game_info.game_clock and self.game_info.player_score > self.game_info.cpu_score:  # CPU down with shot clock off
+            if self.game_info.shot_clock > 15:
+                cpu_time = random.randint(3, 13)
+            else: 
+                cpu_time = random.randint(1, self.game_info.shot_clock)
+
+
+        if random.random() < cpu_fouled_player_stats['FT_PCT']:
+            points = 1
+            self.log_play(f"{cpu_fouled_player} makes free throw 1 of 2")
+            self.game_info.cpu_score += points
+            self.update_scoreboard()
+        else:
+            self.log_play(f"{cpu_fouled_player} misses free throw 1 of 2")
+        
+        # Second free throw
+        if random.random() < cpu_fouled_player_stats['FT_PCT']:
+            make = True
+            points = 1
+            self.log_play(f"{cpu_fouled_player} makes free throw 2 of 2")
+            self.game_info.cpu_score += points 
+        else:
+            self.log_play(f"{cpu_fouled_player} misses free throw 2 of 2")
+            make = False
+        
             
 
     def game_over(self):
-        self.game_info.shot_clock = 0
+        self.game_info.set_shot_clock(0)
         self.update_scoreboard()
         self.log_play("Game Over")
         self.sim_button.setEnabled(False)
