@@ -14,7 +14,7 @@ df = metrics.get_data_frames()[0]
 print(df['TEAM_NAME'].unique())
 
 # Filter for Cleveland Cavaliers
-cavs_row = df[df['TEAM_NAME'] == 'Los Angeles Clippers']
+cavs_row = df[df['TEAM_NAME'] == 'Atlanta Hawks']
 
 # Extract E_TM_TOV_PCT
 if not cavs_row.empty:

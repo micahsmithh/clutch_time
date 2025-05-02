@@ -22,7 +22,7 @@ class game:
         self.play_clock = time
     
     def set_shot_clock(self, time):
-        self.shot_clock = time
+        self.shot_clock = time if time < self.play_clock else self.play_clock
 
     def set_possession(self, possession):
         self.possession = possession

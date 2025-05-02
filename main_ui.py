@@ -618,9 +618,9 @@ class SimulationScreen(QWidget):
         self.clock_used.textChanged.connect(self.clock_used_entered)
 
         # Sim Button
-        sim_button = QPushButton("Sim")
-        sim_button.setFont(QFont("Helvetica", 12))
-        sim_button.setStyleSheet("""
+        self.sim_button = QPushButton("Sim")
+        self.sim_button.setFont(QFont("Helvetica", 12))
+        self.sim_button.setStyleSheet("""
             QPushButton {
                 background-color: green;
                 color: white;
@@ -636,7 +636,7 @@ class SimulationScreen(QWidget):
                 color: black;
             }
         """)
-        sim_button.clicked.connect(self.sim_button_clicked)  #will start simulation
+        self.sim_button.clicked.connect(self.sim_button_clicked)  #will start simulation
 
         # Label for Actions
         self.player_action_text = QLabel("Offensive Action")
@@ -648,7 +648,7 @@ class SimulationScreen(QWidget):
         player_action_layout.addWidget(self.player_actions)
         player_action_layout.addWidget(self.player_select)
         player_action_layout.addWidget(self.clock_used)
-        player_action_layout.addWidget(sim_button)
+        player_action_layout.addWidget(self.sim_button)
         
 
 
@@ -769,14 +769,15 @@ class SimulationScreen(QWidget):
         self.cpu_logo.setAlignment(Qt.AlignmentFlag.AlignRight)
 
 
-        for i in range(60):
-            self.log_play(f"This is play number {i}")
             
 
     #set scores
     def set_game_variables(self, player_score, cpu_score):
         self.game_info.set_player_score(player_score)
         self.game_info.set_cpu_score(cpu_score)
+        self.play_log.clear()
+        self.game_info.set_play_clock(60)
+        self.game_info.set_shot_clock(24)
         self.update_scoreboard()
 
         # print(self.game_info.player_score)
@@ -845,7 +846,7 @@ class SimulationScreen(QWidget):
     def get_team_stats_dict(self, team_name):
         # Define parameters
         season = '2024-25' 
-        season_type = 'Playoffs'
+        season_type = 'Regular Season'
 
         # Call the endpoint
         stats = TeamEstimatedMetrics(season=season, season_type=season_type)
@@ -915,6 +916,12 @@ class SimulationScreen(QWidget):
 
             self.player_actions.addItem("Choose Defensive Play")
             self.player_actions.addItems(["Foul", "No Foul"])
+
+        # Enable Buttons
+        self.sim_button.setEnabled(True)
+        self.player_select.setEnabled(True)
+        self.player_actions.setEnabled(True)
+        self.clock_used.setEnabled(True)
         
 
         self.clock_used.clear()
@@ -925,6 +932,7 @@ class SimulationScreen(QWidget):
         self.player_actions.model().item(0).setEnabled(False)
 
     def clock_used_entered(self):
+        self.validator = QDoubleValidator(0, self.game_info.shot_clock, 1)
         text = self.clock_used.text()
         state = self.validator.validate(text, 0)[0]
         if state != QValidator.State.Acceptable:
@@ -970,6 +978,7 @@ class SimulationScreen(QWidget):
                     self.handle_offensive_action("two", shooter, float(text))
                 case "Shoot a Three":
                     print ("Three")
+                    self.handle_offensive_action("three", shooter, float(text))
                 case "Call Timeout":
                     print("Timeout")
                 case _:
@@ -995,20 +1004,85 @@ class SimulationScreen(QWidget):
                     
 
 
-    def log_play(self, text):
-        self.play_log.append(text)
+    def log_play(self, play):
+        self.play_log.append(f"00:{self.game_info.play_clock}: {play}")
 
     def handle_offensive_action(self, action, player, time):
+        
+        # Calculate Time
+        if time == self.game_info.play_clock or time == self.game_info.shot_clock:  # Run Clock Out
+            self.game_info.play_clock -= time
+            
+            if self.game_info.play_clock <= 0:
+                self.game_over()
+        else:
+            self.game_info.play_clock -= time
+            
+
+        
+        stats = self.player_stats[player]
+        make = False
+        points = 0
 
         if action == "two":
-            stats = self.player_stats[player]
-            print(f"{player} is taking a {action} in {time} s")
-
             if random.random() < stats['FG2_PCT']:
-                print(f"{player} made it with {stats['FG2_PCT']} probablility")
-            else:
-                print("missed")
+                make = True
+                points = 2
+        elif action == "three":
+            if random.random() < stats['FG3_PCT']:
+                make = True
+                points = 3
+        else:
+            print(f"Unknown Action: {action}")
 
+        if make:
+            self.log_play(f"{player} makes {action} point shot")
+
+            # Update Scoreboard
+            self.game_info.player_score += points 
+        else:
+            self.log_play(f"{player} misses {action} point shot")
+
+        self.handle_rebound(make)
+        self.update_scoreboard()
+
+    def handle_rebound(self, make):
+        if make:
+            self.game_info.set_shot_clock(24)   # Reset Shot Clock
+            self.game_info.set_possession(not(self.game_info.possession))   # Flip Possession
+        else:
+            # Probability of Offenesive Rebund = OREB% / (OREB% + Opponent DREB%)
+            p_oreb = None
+            o_team = None
+            d_team = None
+            if self.game_info.possession == 0:
+                p_oreb = self.player_team_stats['OREB_PCT'] / (self.player_team_stats['OREB_PCT'] + self.cpu_team_stats['DREB_PCT'])
+                o_team = self.player_team['nickname']
+                d_team = self.cpu_team['nickname']
+            else:
+                p_oreb = self.cpu_team_stats['OREB_PCT'] / (self.cpu_team_stats['OREB_PCT'] + self.player_team_stats['DREB_PCT'])
+                o_team = self.cpu_team['nickname']
+                d_team = self.player_team['nickname']
+
+            # Handle if Offensive Rebound Occurs
+            if random.random() < p_oreb:
+                self.game_info.set_shot_clock(24)
+                self.log_play(f"{o_team} offensive rebound")
+            else:
+                self.game_info.set_shot_clock(24)   # Reset Shot Clock
+                self.game_info.set_possession(not(self.game_info.possession)) # Possession Changes
+                self.log_play(f"{d_team} defensive rebound")
+
+        self.set_player_actions()   # Set Player Actions
+
+            
+
+    def game_over(self):
+        self.log_play("Game Over")
+        self.sim_button.setEnabled(False)
+        self.player_select.setEnabled(False)
+        self.player_actions.setEnabled(False)
+        self.clock_used.setEnabled(False)
 
 
 
