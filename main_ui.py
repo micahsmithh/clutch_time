@@ -951,7 +951,9 @@ class SimulationScreen(QWidget):
         self.shot_clock_display.setText(str(self.game_info.shot_clock))
 
         # Update Game Clock
-        if self.game_info.game_clock < 60:
+        if self.game_info.game_clock < 10:
+            self.clock_display.setText(f"00:0{self.game_info.game_clock} Q4")
+        elif self.game_info.game_clock < 60:
             self.clock_display.setText(f"00:{self.game_info.game_clock} Q4")
         else:
             self.clock_display.setText(f"01:00 Q4")
@@ -1071,7 +1073,10 @@ class SimulationScreen(QWidget):
 
 
     def log_play(self, play):
-        self.play_log.append(f"00:{self.game_info.game_clock}: {play}")
+        if self.game_info.game_clock < 10:
+            self.play_log.append(f"00:0{self.game_info.game_clock}: {play}")
+        else:
+            self.play_log.append(f"00:{self.game_info.game_clock}: {play}")
 
     def handle_offensive_action(self, action, player, time):
         
@@ -1085,10 +1090,15 @@ class SimulationScreen(QWidget):
                 cpu_time = random.randint(1, self.game_info.shot_clock)
 
         if cpu_time <= time:
+            # Check for turnover
+            if self.handle_turnover(cpu_time):
+                return
+
             self.game_info.game_clock -= cpu_time
             # Fet player to be fouled
             cpu_fouled_player = random.choice(self.player_lineup)
             cpu_fouled_player_stats = self.player_stats[cpu_fouled_player]
+            self.log_play(f"{cpu_fouled_player} fouled")
 
             # Free Throw Logic
             if random.random() < cpu_fouled_player_stats['FT_PCT']:
@@ -1117,6 +1127,9 @@ class SimulationScreen(QWidget):
                     self.game_over()
                     return
             else:
+                # Check for turnover
+                if self.handle_turnover(time):
+                    return
                 self.game_info.game_clock -= time
             
             stats = self.player_stats[player]
@@ -1208,8 +1221,13 @@ class SimulationScreen(QWidget):
 
         # Compare time to cpu_time to see which action happens
         if time < cpu_time and action == "Foul": # Player Action Occurs (Free Throws)
+            # Check for turnover
+            if self.handle_turnover(time):
+                return
+
             self.game_info.game_clock -= time
             stats = self.cpu_stats[player]
+            self.log_play(f"{player} fouled")
 
             # First Free Throw
             if random.random() < stats['FT_PCT']:
@@ -1230,6 +1248,10 @@ class SimulationScreen(QWidget):
                 self.log_play(f"{player} misses free throw 2 of 2")
                 make = False
         else:   # CPU Action Occurs
+            # Check for turnover
+            if self.handle_turnover(cpu_time):
+                return
+
             self.game_info.game_clock -= cpu_time
             
             # Checkign Shot Type
@@ -1293,6 +1315,38 @@ class SimulationScreen(QWidget):
                 self.log_play(f"{d_team} defensive rebound")
 
         self.set_player_actions()   # Set Player Actions
+
+    def handle_turnover(self, time):
+        p_tov = None # Probability of turnover
+        o_team = None # Offensive Team
+
+
+        if self.game_info.possession == 0:
+            p_tov = self.player_team_stats['TOV_PCT']
+            o_team = self.player_team['nickname']
+        else:
+            p_tov = self.cpu_team_stats['TOV_PCT']
+            o_team = self.cpu_team['nickname']
+
+        print(f"{o_team}'s  turnover chance: {p_tov}")
+
+        if random.random() < p_tov: # Turnover Occurs
+
+            # Clock
+            time_used = random.randint(0, time)
+            self.game_info.game_clock -= time_used
+            self.game_info.set_shot_clock(24)   # Reset Shot Clock
+
+            self.game_info.set_possession(not(self.game_info.possession)) # Flip possession
+            self.log_play(f"{o_team} turnover")
+
+            # Update UI
+            self.set_player_actions() 
+            self.update_scoreboard()
+
+            return True
+        else:  
+            return False
     
 
     def handle_cpu_fouls(self):
