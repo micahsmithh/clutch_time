@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox, QHBoxLayout, QTextEdit, QLineEdit
 from PyQt6.QtGui import QFont, QPixmap, QPainter, QDoubleValidator, QValidator, QFontDatabase, QFont
 from PyQt6.QtCore import Qt, QByteArray
-from nba_api.stats.endpoints import TeamEstimatedMetrics, teamgamelog, boxscoretraditionalv2, LeagueDashPlayerClutch
+from nba_api.stats.endpoints import TeamEstimatedMetrics, teamgamelog, boxscoretraditionalv2, LeagueDashPlayerClutch, LeagueDashPlayerStats
 from nba_api.stats.static import players, teams
 from nba_api.stats.endpoints import commonteamroster
 import pandas as pd
@@ -437,7 +437,7 @@ class SimulationScreen(QWidget):
         self.play_log.setReadOnly(True)
         self.play_log.setFont(QFont("Helvetica", 12))
         log_title = QLabel("Play by Play")
-        log_title.setFont(QFont("Helvetica", 15))
+        log_title.setFont(QFont("Helvetica", 15, QFont.Weight.Bold))
         self.center_log.addWidget(log_title)
         self.center_log.addWidget(self.play_log)
 
@@ -691,7 +691,7 @@ class SimulationScreen(QWidget):
 
 
         print(f"Player's Lineup: {self.player_lineup}")
-        self.player_stats = self.get_clutch_dict(player_lineup) # Put stats in our own dictionary
+        self.player_stats = self.get_regular_season_dict(player_lineup) # Put stats in our own dictionary
         self.player_team_stats = self.get_team_stats_dict(self.player_team['full_name']) # Put team stats in dictionary
         #print(f"{self.player_team['full_name']}'s stats are : {self.player_team_stats}")
 
@@ -717,7 +717,7 @@ class SimulationScreen(QWidget):
             image_label.setPixmap(scaled_pixmap)
 
         print(f"CPU's Lineup: {self.cpu_lineup}")
-        self.cpu_stats = self.get_clutch_dict(cpu_lineup) # Put stats in our own dictionary
+        self.cpu_stats = self.get_regular_season_dict(cpu_lineup) # Put stats in our own dictionary
         self.cpu_team_stats = self.get_team_stats_dict(self.cpu_team['full_name'])
         #print(f"{self.cpu_team['full_name']}'s stats are : {self.cpu_team_stats}")
 
@@ -818,8 +818,19 @@ class SimulationScreen(QWidget):
 
         for name in players_list:
             player_info = players.find_players_by_full_name(name)
+
+            # Error Checking Names
+            if not player_info:
+                print(f"Player {name} not found")
+                continue
+
             player_id = player_info[0]['id']
             player_clutch_stats = df[df['PLAYER_ID'] == player_id]
+
+            # Error Checking Stats
+            if player_clutch_stats.empty:
+                print(f"Season stats not found for {name}")
+                continue
 
             # calculate FG2_PCT
             #print(player_clutch_stats.iloc[0]['FGA'])
@@ -842,6 +853,59 @@ class SimulationScreen(QWidget):
         # print(f"{players_list[0]}'s FT_PCT = {clutch_dict[players_list[0]]['FT_PCT']}")
 
         return clutch_dict
+
+    
+
+    def get_regular_season_dict(self, players_list):
+        # Pull regular season player stats
+        regular_stats = LeagueDashPlayerStats(
+            season='2024-25',
+            season_type_all_star='Regular Season'
+        )
+
+        # Get Data Frame
+        df = regular_stats.get_data_frames()[0]
+
+        player_stats_dict = {}
+
+        print(f"Team : {players_list}")
+
+        for name in players_list:
+            player_info = players.find_players_by_full_name(name)
+
+            # Error Checking Names
+            if not player_info:
+                print(f"Player {name} not found")
+                continue
+
+            player_id = player_info[0]['id']
+            player_season_stats = df[df['PLAYER_ID'] == player_id]
+
+            # Error Checking Stats
+            if player_season_stats.empty:
+                print(f"Season stats not found for {name}")
+                continue
+
+            # calculate FG2_PCT
+            #print(player_season_stats.iloc[0]['FGA'])
+
+            two_points_attempted = player_season_stats.iloc[0]['FGA'] - player_season_stats.iloc[0]['FG3A']
+            two_points_made = player_season_stats.iloc[0]['FGM'] - player_season_stats.iloc[0]['FG3M']
+            two_point_percentage = round(two_points_made / two_points_attempted, 3) if two_points_attempted != 0 else 0 # zero checking
+
+            player_stats_dict[name] = {
+                'FG_PCT' : player_season_stats.iloc[0]['FG_PCT'],
+                'FG3_PCT' : player_season_stats.iloc[0]['FG3_PCT'],
+                'FG2_PCT' : two_point_percentage,
+                'FT_PCT'  : player_season_stats.iloc[0]['FT_PCT']
+            
+        }
+
+        return player_stats_dict
+
+
+
+
     
     def get_team_stats_dict(self, team_name):
         # Define parameters
@@ -1176,6 +1240,9 @@ class SimulationScreen(QWidget):
                 d_team = self.player_team['nickname']
 
             # Handle if Offensive Rebound Occurs
+
+            print(f"Offensive Rebound chance: {p_oreb}")
+
             if random.random() < p_oreb:
                 self.game_info.set_shot_clock(14)
                 self.log_play(f"{o_team} offensive rebound")
