@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox, QHBoxLayout, QTextEdit, QLineEdit
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox, QHBoxLayout, QTextEdit, QLineEdit, QCheckBox
 from PyQt6.QtGui import QFont, QPixmap, QPainter, QIntValidator, QValidator, QFontDatabase, QFont 
 from PyQt6.QtCore import Qt, QByteArray
 from nba_api.stats.endpoints import TeamEstimatedMetrics, teamgamelog, boxscoretraditionalv2, LeagueDashPlayerClutch, LeagueDashPlayerStats
@@ -105,7 +105,7 @@ class StartScreen(QWidget):
 
         # Player Score Selector
         self.player_score_label = QLabel(" Select Your Score")
-        self.player_score_label.setFont(QFont("Helvetica", 12))
+        self.player_score_label.setFont(QFont("Helvetica", 12, QFont.Weight.Bold))
         player_team_layout.addWidget(self.player_score_label)
 
         self.player_score_box = QSpinBox()
@@ -116,7 +116,7 @@ class StartScreen(QWidget):
         
         # CPU Score Selector
         self.cpu_score_label = QLabel(" Select CPU Score")
-        self.cpu_score_label.setFont(QFont("Helvetica", 12))
+        self.cpu_score_label.setFont(QFont("Helvetica", 12, QFont.Weight.Bold))
         cpu_team_layout.addWidget(self.cpu_score_label)
 
         self.cpu_score_box = QSpinBox()
@@ -155,6 +155,12 @@ class StartScreen(QWidget):
         arrow_layout.addWidget(self.arrow_button, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         grid_layout.addWidget(arrow_widget, 2, 1)
+         # Use Clutch Stats Toggle
+        self.clutch_stats_checkbox = QCheckBox("Use Clutch Stats")
+        self.clutch_stats_checkbox.setFont(QFont("Helvetica", 12, QFont.Weight.Bold))
+        self.clutch_stats_checkbox.setStyleSheet("color: white;")
+        self.clutch_stats_checkbox.setToolTip("Use advanced clutch-time performance metrics for simulation.")
+        grid_layout.addWidget(self.clutch_stats_checkbox, 2, 1, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
 
 
 
@@ -175,7 +181,8 @@ class StartScreen(QWidget):
         cpu_team_id = self.simulation_screen.cpu_team['id']
 
         #set teams scores
-        self.simulation_screen.set_game_variables(self.player_score_box.value(), self.cpu_score_box.value()) 
+        use_clutch = self.clutch_stats_checkbox.isChecked()
+        self.simulation_screen.set_game_variables(self.player_score_box.value(), self.cpu_score_box.value(), use_clutch) 
 
         # Open lineup selection window
         self.lineup_window = LineupSelectionWindow(player_team_id, cpu_team_id, self.lineup_set)
@@ -361,6 +368,7 @@ class SimulationScreen(QWidget):
         self.cpu_stats = {}
         self.player_team_stats = {}
         self.cpu_team_stats = {}
+        self.use_clutch = False
 
         layout = QGridLayout()
         self.setLayout(layout)
@@ -690,8 +698,8 @@ class SimulationScreen(QWidget):
 
 
         print(f"Player's Lineup: {self.player_lineup}")
-        self.player_stats = self.get_regular_season_dict(player_lineup) # Put stats in our own dictionary
-        self.player_team_stats = self.get_team_stats_dict(self.player_team['full_name']) # Put team stats in dictionary
+        self.player_stats = self.get_clutch_dict(player_lineup) if self.use_clutch else self.get_regular_season_dict(player_lineup) # Put stats in our own dictionary
+        self.player_team_stats = self.get_team_stats_dict(self.player_team['full_name'])    # Put team stats in dictionary
         #print(f"{self.player_team['full_name']}'s stats are : {self.player_team_stats}")
 
 
@@ -716,7 +724,7 @@ class SimulationScreen(QWidget):
             image_label.setPixmap(scaled_pixmap)
 
         print(f"CPU's Lineup: {self.cpu_lineup}")
-        self.cpu_stats = self.get_regular_season_dict(cpu_lineup) # Put stats in our own dictionary
+        self.cpu_stats = self.get_clutch_dict(cpu_lineup) if self.use_clutch else self.get_regular_season_dict(cpu_lineup)# Put stats in our own dictionary
         self.cpu_team_stats = self.get_team_stats_dict(self.cpu_team['full_name'])
         #print(f"{self.cpu_team['full_name']}'s stats are : {self.cpu_team_stats}")
 
@@ -771,13 +779,14 @@ class SimulationScreen(QWidget):
             
 
     #set scores
-    def set_game_variables(self, player_score, cpu_score):
+    def set_game_variables(self, player_score, cpu_score, use_clutch):
         self.game_info.set_player_score(player_score)
         self.game_info.set_cpu_score(cpu_score)
         self.play_log.clear()
         self.game_info.set_game_clock(60)
         self.game_info.set_shot_clock(24)
         self.update_scoreboard()
+        self.use_clutch = use_clutch
 
         # print(self.game_info.player_score)
         # print(self.game_info.cpu_score)
@@ -850,7 +859,7 @@ class SimulationScreen(QWidget):
         # print(f"{players_list[0]}'s FG2_PCT = {clutch_dict[players_list[0]]['FG2_PCT']}")
         # print(f"{players_list[0]}'s FG3_PCT = {clutch_dict[players_list[0]]['FG3_PCT']}")
         # print(f"{players_list[0]}'s FT_PCT = {clutch_dict[players_list[0]]['FT_PCT']}")
-
+        print("CLUTCH")
         return clutch_dict
 
     
@@ -899,7 +908,7 @@ class SimulationScreen(QWidget):
                 'FT_PCT'  : player_season_stats.iloc[0]['FT_PCT']
             
         }
-
+        print("REGULAR")
         return player_stats_dict
 
 
