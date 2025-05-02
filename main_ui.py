@@ -6,7 +6,7 @@ from nba_api.stats.static import players, teams
 from nba_api.stats.endpoints import commonteamroster
 import pandas as pd
 from game import game
-import requests, random, sys
+import requests, random, sys, time
 
 class StartScreen(QWidget):
     def __init__(self, stacked_widget, sim_screen):
@@ -444,10 +444,29 @@ class SimulationScreen(QWidget):
         self.play_log = QTextEdit()
         self.play_log.setReadOnly(True)
         self.play_log.setFont(QFont("Helvetica", 12))
+
         log_title = QLabel("Play by Play")
-        log_title.setFont(QFont("Helvetica", 15, QFont.Weight.Bold))
-        self.center_log.addWidget(log_title)
-        self.center_log.addWidget(self.play_log)
+        log_title.setFont(QFont("Helvetica", 15))
+
+
+
+
+        play_log_container = QWidget()
+        play_log_layout = QVBoxLayout(play_log_container)
+        play_log_layout.addWidget(log_title)
+        play_log_layout.addWidget(self.play_log)
+        play_log_container.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 150);  /* semi-transparent black */
+            border-radius: 10px;
+            padding: 2px;
+        """)
+
+        #self.center_log.addWidget(log_title)
+        self.center_log.addWidget(play_log_container)
+
+
+        # self.center_log.addWidget(log_title)
+        # self.center_log.addWidget(self.play_log)
 
         self.left_lineup_widget = QWidget()
         self.left_lineup_widget.setLayout(self.left_lineup)
@@ -467,9 +486,9 @@ class SimulationScreen(QWidget):
 
         # Add to the main grid layout 
         layout.addLayout(self.center_log, 1, 2, 2, 1)   # spans 2 rows 1 columns
-        layout.addLayout(self.left_lineup, 1, 0, 1, 1)
+        # layout.addLayout(self.left_lineup, 1, 0, 1, 1)
         layout.addWidget(self.left_lineup_widget, 1, 0, 1, 1)
-        layout.addLayout(self.right_lineup, 1, 3, 1, 1)
+        # layout.addLayout(self.right_lineup, 1, 3, 1, 1)
         layout.addWidget(self.right_lineup_widget, 1, 3, 1, 1)
 
         ###############################
@@ -553,8 +572,8 @@ class SimulationScreen(QWidget):
         self.shot_clock_display.setFixedHeight(60)
 
         
-        self.clock_display.setFont(QFont(family))
-        self.shot_clock_display.setFont(QFont(family))
+        self.clock_display.setFont(QFont("Helvetica"))
+        self.shot_clock_display.setFont(QFont("Helvetica"))
         
 
         #center_box.addWidget(time_label)
@@ -616,6 +635,8 @@ class SimulationScreen(QWidget):
         # Player Actions Dropdowns
         self.player_select = QComboBox()
         self.player_actions = QComboBox()
+        self.player_select.setFont(QFont("Helvetica", 14))
+        self.player_actions.setFont(QFont("Helvetica", 14))
 
         self.clock_used = QLineEdit()
         self.clock_used.setFont(QFont("Helvetica", 12))
@@ -647,7 +668,7 @@ class SimulationScreen(QWidget):
 
         # Label for Actions
         self.player_action_text = QLabel("Offensive Action")
-        self.player_action_text.setFont(QFont("Helvetica", 13))
+        self.player_action_text.setFont(QFont("Helvetica", 15))
         self.player_action_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Add Widgets to Player Action Layout
@@ -657,8 +678,6 @@ class SimulationScreen(QWidget):
         player_action_layout.addWidget(self.clock_used)
         player_action_layout.addWidget(self.sim_button)
         
-
-
         layout.addWidget(player_action_widget, 1, 1, 1, 1)
 
     #update selected teams (called from start) and sets variable to dictionary
@@ -921,10 +940,27 @@ class SimulationScreen(QWidget):
         season_type = 'Regular Season'
 
         # Call the endpoint
-        stats = TeamEstimatedMetrics(season=season, season_type=season_type)
+        # try:
+        #     stats = TeamEstimatedMetrics(season=season, season_type=season_type)
 
-        # Get the data frame
-        df = stats.get_data_frames()[0]
+        #     # Get the data frame
+        #     df = stats.get_data_frames()[0]
+        # except requests.exceptions.ConnectionError:
+        #     print("❌ Connection error: Check your internet or the NBA API server.")
+        #     return
+        
+        for attempt in range(3):
+            try:
+                stats = TeamEstimatedMetrics(season=season, season_type=season_type)
+                df = stats.get_data_frames()[0]
+                break  # break out of loop if failed
+            except requests.exceptions.ConnectionError:
+                print(f"Attempt {attempt + 1} failed")
+                time.sleep(2)
+        else:
+            print("❌ All retries failed.")
+            df = None
+            return
 
         # Filter for team
         team_row = df[df['TEAM_NAME'] == team_name]
@@ -1348,7 +1384,7 @@ class SimulationScreen(QWidget):
         if random.random() < p_tov: # Turnover Occurs
 
             # Clock
-            time_used = random.randint(0, time)
+            time_used = random.randint(1, time)
             self.game_info.game_clock -= time_used
             self.game_info.set_shot_clock(24)   # Reset Shot Clock
 
