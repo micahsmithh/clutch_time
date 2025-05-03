@@ -1314,7 +1314,7 @@ class SimulationScreen(QWidget):
                     make = True
                     points = 3
             else:                   # CPU took no shot (only should occur if they can run time to 0)
-                if game_clock <= 0:
+                if self.game_info.game_clock <= 0:
                     self.game_over()
                     return
             if make:
@@ -1323,6 +1323,7 @@ class SimulationScreen(QWidget):
                 self.game_info.cpu_score += points  
             else:
                 self.log_play(f"{cpu_shooter} misses {cpu_shot} point shot")
+
 
         # Handle rebounds and update scoreboard
         self.handle_rebound(make)
@@ -1394,6 +1395,8 @@ class SimulationScreen(QWidget):
             # Update UI
             self.set_player_actions() 
             self.update_scoreboard()
+            if self.game_info.game_clock <= 0:
+                self.game_over()
 
             return True
         else:  
@@ -1485,7 +1488,7 @@ def get_team_id_from_abbreviation(abbreviation):
             if team['abbreviation'] == abbreviation:
                 return team['id']
         
-        # If no match is found, return None
+        # Return None if no match is found
         return None
 
 

@@ -1,9 +1,3 @@
-import sys
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QLineEdit
-from nba_api.stats.endpoints import playercareerstats
-from nba_api.stats.static import players
-import random
-
 class game:
     def __init__(self, player_score=0, cpu_score=0, possession=None):
         self.player_score = player_score
