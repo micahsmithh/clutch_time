@@ -295,26 +295,27 @@ class LineupSelectionWindow(QWidget):
         self.callback(player_selected_players, self.cpu_starters)  # Send selected players back to main app
         self.close() #close window
 
+    # Get starters for default lineup
     def get_starters(self, team_id):
         season = '2024' 
         team = next((team['abbreviation'] for team in teams.get_teams() if team['id'] == team_id), None) # get abbreivation from team_id
 
-        # Fetch the regular season game log
+        # Get regular season game log
         gamelog_regular = teamgamelog.TeamGameLog(team_id=team_id, season=season, season_type_all_star='Regular Season')
         games_regular = gamelog_regular.get_data_frames()[0]
 
-        # Fetch the playoff game log
+        # Get playoff game log
         gamelog_playoffs = teamgamelog.TeamGameLog(team_id=team_id, season=season, season_type_all_star='Playoffs')
         games_playoffs = gamelog_playoffs.get_data_frames()[0]
 
-        # Combine both regular season and playoff games
+        # Combine into one data frame
         games_combined = pd.concat([games_regular, games_playoffs], ignore_index=True)
 
         # Sort the combined games by GAME_DATE to get the most recent game
-        games_combined['GAME_DATE'] = pd.to_datetime(games_combined['GAME_DATE'])  # Convert GAME_DATE to datetime format
+        games_combined['GAME_DATE'] = pd.to_datetime(games_combined['GAME_DATE'])  # first ahave to convert to datatime format
         games_combined_sorted = games_combined.sort_values(by='GAME_DATE', ascending=False)
 
-        # Get the last game (most recent one)
+        # Get most recent game
         if not games_combined_sorted.empty:
             for _, game in games_combined_sorted.iterrows():
                 game_id = game['Game_ID']
@@ -332,11 +333,9 @@ class LineupSelectionWindow(QWidget):
                     (player_stats['START_POSITION'].isin(['G', 'F', 'C']))
                 ]
 
-                # once team starters are found: display
+                # Once team starters are found: display
                 if not team_starters.empty:
                     print(f"Found starters for Game ID: {game_id}")
-                    print(f"Game details:\n{game}")
-                    print(f"Game ID = {game_id}")
                     print(team_starters[['PLAYER_NAME', 'START_POSITION']])
                     return team_starters['PLAYER_NAME'].tolist()  # exit loops when starters are found
             else:
@@ -348,7 +347,6 @@ class LineupSelectionWindow(QWidget):
 
 
 
-#need to edit
 class SimulationScreen(QWidget):
     def __init__(self, stacked_widget):
         super().__init__()
@@ -435,7 +433,7 @@ class SimulationScreen(QWidget):
             text_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
             player_layout.addWidget(image_label)    # Add headshot image first
-            player_layout.addWidget(text_label)     # Player name next to image
+            player_layout.addWidget(text_label)     # Player name to right of the image
             self.right_lineup.addLayout(player_layout)   # Add layout to overall lineup layout
 
             self.cpu_lineup_labels.append((image_label, text_label))
@@ -486,9 +484,7 @@ class SimulationScreen(QWidget):
 
         # Add to the main grid layout 
         layout.addLayout(self.center_log, 1, 2, 2, 1)   # spans 2 rows 1 columns
-        # layout.addLayout(self.left_lineup, 1, 0, 1, 1)
         layout.addWidget(self.left_lineup_widget, 1, 0, 1, 1)
-        # layout.addLayout(self.right_lineup, 1, 3, 1, 1)
         layout.addWidget(self.right_lineup_widget, 1, 3, 1, 1)
 
         ###############################
@@ -517,7 +513,7 @@ class SimulationScreen(QWidget):
             border-radius: 15px;
         """)
 
-        # ----------- PLAYER SIDE -------------
+        # Player Side
         left_box = QVBoxLayout()
 
         you_label = QLabel("YOU")
@@ -543,7 +539,7 @@ class SimulationScreen(QWidget):
         left_box.addWidget(self.player_logo)
         left_box.addWidget(self.player_score)
 
-        # ----------- Middle -------------
+        # Middle
         center_box = QVBoxLayout()
 
         time_label = QLabel("TIME")
@@ -581,7 +577,7 @@ class SimulationScreen(QWidget):
         center_box.addWidget(self.shot_clock_display)
         center_box.setAlignment(self.shot_clock_display, Qt.AlignmentFlag.AlignHCenter)
 
-        # ----------- CPU SIDE -------------
+        # CPU Side
         right_box = QVBoxLayout()
 
         cpu_label = QLabel("CPU")
@@ -614,7 +610,7 @@ class SimulationScreen(QWidget):
         scoreboard_layout.addStretch()
         scoreboard_layout.addLayout(right_box)
 
-        # Place scoreboard at the top center of the grid
+        # Place scoreboard at top of the grid in the middle
         layout.addWidget(scoreboard_widget, 0, 1, 1, 2)
 
         ###############################
@@ -685,16 +681,20 @@ class SimulationScreen(QWidget):
         self.player_team = teams.find_teams_by_full_name(player_team)[0]
 
         #gonna have to update text labels
+    
+    #update selected teams (called from start) and sets variable to dictionary
     def update_cpu_team(self, cpu_team):
         self.cpu_team = teams.find_teams_by_full_name(cpu_team)[0]
         #gonna have to update text labels
 
         #print(f"Abbreviation: {self.cpu_team[0]['abbreviation']}")
 
+    # Used to set background image
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.drawPixmap(self.rect(), self.background_pixmap)
 
+    # Sets lineup after confirmation
     def set_player_lineup(self, player_lineup):
         self.player_lineup = player_lineup
         for i, name in enumerate(player_lineup):
@@ -721,7 +721,7 @@ class SimulationScreen(QWidget):
         self.player_team_stats = self.get_team_stats_dict(self.player_team['full_name'])    # Put team stats in dictionary
         #print(f"{self.player_team['full_name']}'s stats are : {self.player_team_stats}")
 
-
+    # Sets lineup after confirmation
     def set_cpu_lineup(self, cpu_lineup):
         self.cpu_lineup = cpu_lineup
         for i, name in enumerate(cpu_lineup):
@@ -747,6 +747,7 @@ class SimulationScreen(QWidget):
         self.cpu_team_stats = self.get_team_stats_dict(self.cpu_team['full_name'])
         #print(f"{self.cpu_team['full_name']}'s stats are : {self.cpu_team_stats}")
 
+    # Updates logo when teams are selected
     def update_team_logos(self):
         
         # player_name = "Donovan Mitchell"
@@ -794,10 +795,7 @@ class SimulationScreen(QWidget):
         self.cpu_logo.setPixmap(scaled_pixmap)
         self.cpu_logo.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-
-            
-
-    #set scores
+    # Updates all necessary information at start of the simulation
     def set_game_variables(self, player_score, cpu_score, use_clutch):
         self.game_info.set_player_score(player_score)
         self.game_info.set_cpu_score(cpu_score)
@@ -810,7 +808,7 @@ class SimulationScreen(QWidget):
         # print(self.game_info.player_score)
         # print(self.game_info.cpu_score)
 
-    # Returns pixmap from URL
+    # Returns pixmap of image from URL
     def get_image_from_url(self, url):
 
         response = requests.get(url)
@@ -824,7 +822,7 @@ class SimulationScreen(QWidget):
         else:
             print("Failed to Load image from URL")
 
-
+    # Gets clutch stats dictionary of inputted player
     def get_clutch_dict(self, players_list):
 
         # pull clutch stats
@@ -881,8 +879,7 @@ class SimulationScreen(QWidget):
         print("CLUTCH")
         return clutch_dict
 
-    
-
+    # Gets regular season stats dictionary of inputted player
     def get_regular_season_dict(self, players_list):
         # Pull regular season player stats
         regular_stats = LeagueDashPlayerStats(
@@ -930,10 +927,7 @@ class SimulationScreen(QWidget):
         print("REGULAR")
         return player_stats_dict
 
-
-
-
-    
+    # Gets team stats dictionary 
     def get_team_stats_dict(self, team_name):
         # Define parameters
         season = '2024-25' 
@@ -987,7 +981,7 @@ class SimulationScreen(QWidget):
         else:
             print(f"{team_name} data not found")
 
-    #update scoreborard
+    # Updates scoreborard
     def update_scoreboard(self):
         self.player_score.setText(str(self.game_info.player_score))
         self.cpu_score.setText(str(self.game_info.cpu_score))
@@ -1003,6 +997,7 @@ class SimulationScreen(QWidget):
         else:
             self.clock_display.setText(f"01:00 Q4")
 
+    # Updates player actions based off possession
     def set_player_actions(self):
 
         # Clear Selections First
@@ -1041,6 +1036,7 @@ class SimulationScreen(QWidget):
         self.player_select.model().item(0).setEnabled(False)
         self.player_actions.model().item(0).setEnabled(False)
 
+    # Conncted to clock used widget
     def clock_used_entered(self):
         print(f"shot clock = {self.game_info.shot_clock}")
         self.validator = QIntValidator(1, self.game_info.shot_clock)
@@ -1053,6 +1049,7 @@ class SimulationScreen(QWidget):
             self.clock_used.setStyleSheet("")
             print(f"Valid Input ")
     
+    # Connected to sim button
     def sim_button_clicked(self):
         print(self.player_team)
 
@@ -1115,14 +1112,14 @@ class SimulationScreen(QWidget):
                 QMessageBox.warning(self, "Error", "Please Select Defensive Action")
                 return
                     
-
-
+    # Log plays in "Play by Play" log
     def log_play(self, play):
         if self.game_info.game_clock < 10:
             self.play_log.append(f"00:0{self.game_info.game_clock}: {play}")
         else:
             self.play_log.append(f"00:{self.game_info.game_clock}: {play}")
 
+    # Handles user offensive possessions
     def handle_offensive_action(self, action, player, time):
         
         # Put time high unless needs to be changed
@@ -1214,6 +1211,7 @@ class SimulationScreen(QWidget):
         if self.game_info.game_clock <= 0:
             self.game_over()
 
+    # Handles user defensive possessions
     def handle_defensive_action(self, action, player, time):
 
         # For easier access to variable checking
@@ -1335,7 +1333,7 @@ class SimulationScreen(QWidget):
             print("In da loop")
             self.game_over()
 
-
+    # Handles rebounding after each shot
     def handle_rebound(self, make):
         if make:
             self.game_info.set_shot_clock(24)   # Reset Shot Clock
@@ -1368,6 +1366,7 @@ class SimulationScreen(QWidget):
 
         self.set_player_actions()   # Set Player Actions
 
+    # Called each possession for random chance of turnover based off team stats
     def handle_turnover(self, time):
         p_tov = None # Probability of turnover
         o_team = None # Offensive Team
@@ -1402,40 +1401,39 @@ class SimulationScreen(QWidget):
         else:  
             return False
     
+    # def handle_cpu_fouls(self):
+    #     # First Free Throw
+    #     cpu_time = 100
+    #     cpu_fouled_player = random.choice(self.player_lineup)
+    #     cpu_fouled_player_stats = self.player_stats[cpu_fouled_player]
 
-    def handle_cpu_fouls(self):
-        # First Free Throw
-        cpu_time = 100
-        cpu_fouled_player = random.choice(self.player_lineup)
-        cpu_fouled_player_stats = self.player_stats[cpu_fouled_player]
-
-        if self.game_info.shot_clock >= self.game_info.game_clock and self.game_info.player_score > self.game_info.cpu_score:  # CPU down with shot clock off
-            if self.game_info.shot_clock > 15:
-                cpu_time = random.randint(3, 13)
-            else: 
-                cpu_time = random.randint(1, self.game_info.shot_clock)
+    #     if self.game_info.shot_clock >= self.game_info.game_clock and self.game_info.player_score > self.game_info.cpu_score:  # CPU down with shot clock off
+    #         if self.game_info.shot_clock > 15:
+    #             cpu_time = random.randint(3, 13)
+    #         else: 
+    #             cpu_time = random.randint(1, self.game_info.shot_clock)
 
 
-        if random.random() < cpu_fouled_player_stats['FT_PCT']:
-            points = 1
-            self.log_play(f"{cpu_fouled_player} makes free throw 1 of 2")
-            self.game_info.cpu_score += points
-            self.update_scoreboard()
-        else:
-            self.log_play(f"{cpu_fouled_player} misses free throw 1 of 2")
+    #     if random.random() < cpu_fouled_player_stats['FT_PCT']:
+    #         points = 1
+    #         self.log_play(f"{cpu_fouled_player} makes free throw 1 of 2")
+    #         self.game_info.cpu_score += points
+    #         self.update_scoreboard()
+    #     else:
+    #         self.log_play(f"{cpu_fouled_player} misses free throw 1 of 2")
         
-        # Second free throw
-        if random.random() < cpu_fouled_player_stats['FT_PCT']:
-            make = True
-            points = 1
-            self.log_play(f"{cpu_fouled_player} makes free throw 2 of 2")
-            self.game_info.cpu_score += points 
-        else:
-            self.log_play(f"{cpu_fouled_player} misses free throw 2 of 2")
-            make = False
+    #     # Second free throw
+    #     if random.random() < cpu_fouled_player_stats['FT_PCT']:
+    #         make = True
+    #         points = 1
+    #         self.log_play(f"{cpu_fouled_player} makes free throw 2 of 2")
+    #         self.game_info.cpu_score += points 
+    #     else:
+    #         self.log_play(f"{cpu_fouled_player} misses free throw 2 of 2")
+    #         make = False
         
             
-
+    # Called when game is over to disable buttons and update game log and scoreboard
     def game_over(self):
         self.game_info.set_shot_clock(0)
         self.update_scoreboard()
@@ -1444,8 +1442,6 @@ class SimulationScreen(QWidget):
         self.player_select.setEnabled(False)
         self.player_actions.setEnabled(False)
         self.clock_used.setEnabled(False)
-
-
 
     # def run_simulation(self):
 
@@ -1458,11 +1454,11 @@ class SimulationScreen(QWidget):
              
 
 
-
+# Main window for simulation containing stacked widget
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Basketball Simulation")
+        self.setWindowTitle("Clutch Time")
         self.setGeometry(100, 100, 1100, 700)
 
         # Create Stacked Widget
@@ -1478,7 +1474,7 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.start_screen)  # Index 0 (start)
         self.stacked_widget.addWidget(self.simulation_screen)  # Index 1 (sim)
 
-
+# Gets team id from abbreviation using nba_api
 def get_team_id_from_abbreviation(abbreviation):
         # Fetch the list of all NBA teams
         all_teams = teams.get_teams()
