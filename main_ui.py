@@ -326,7 +326,7 @@ class LineupSelectionWindow(QWidget):
                 # Get player stats DataFrame
                 player_stats = boxscore.get_data_frames()[0]
 
-                #filter players to be only starters from selected team
+                # Filter players to be only starters from selected team
                 team_starters = player_stats[
                     (player_stats['TEAM_ABBREVIATION'] == team) &
                     (player_stats['START_POSITION'].isin(['G', 'F', 'C']))

@@ -6,12 +6,12 @@ from nba_api.stats.static import players
 clutch_stats = LeagueDashPlayerClutch(
     season='2024-25',
     season_type_all_star='Regular Season',
-    clutch_time='Last 5 Minutes', # or 'Last 3 Minutes', 'Last 1 Minute'
-    ahead_behind='Ahead or Behind', # options like 'Ahead or Behind', 'Behind or Tied'
-    point_diff=5  # within 5 points
+    clutch_time='Last 5 Minutes', 
+    ahead_behind='Ahead or Behind', 
+    point_diff=5 
 )
 
-# It's a big dataframe
+# Get data frame
 df = clutch_stats.get_data_frames()[0]
 
 # Now you can filter for a single player
@@ -33,6 +33,4 @@ class Player:
 
 
 
-
-
-player_1 = Player('Zaccharie Risacher', df)
+player_1 = Player('Darius Garland', df)
