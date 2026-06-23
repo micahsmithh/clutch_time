@@ -6,6 +6,7 @@ from nba_api.stats.static import players, teams
 from nba_api.stats.endpoints import commonteamroster
 import pandas as pd
 from game import game
+from utilities import get_team_stats_dict, get_clutch_dict, get_regular_season_dict
 import requests, random, sys, time
 
 class StartScreen(QWidget):
@@ -14,7 +15,6 @@ class StartScreen(QWidget):
         self.stacked_widget = stacked_widget  # Reference to switch screens
         self.simulation_screen = sim_screen   #reference simulation screen
 
-        # VARIABLES
 
 
         # Grid Layout
@@ -717,8 +717,8 @@ class SimulationScreen(QWidget):
 
 
         print(f"Player's Lineup: {self.player_lineup}")
-        self.player_stats = self.get_clutch_dict(player_lineup) if self.use_clutch else self.get_regular_season_dict(player_lineup) # Put stats in our own dictionary
-        self.player_team_stats = self.get_team_stats_dict(self.player_team['full_name'])    # Put team stats in dictionary
+        self.player_stats = get_clutch_dict(player_lineup) if self.use_clutch else get_regular_season_dict(player_lineup) # Put stats in our own dictionary
+        self.player_team_stats = get_team_stats_dict(self.player_team['full_name'])    # Put team stats in dictionary
         #print(f"{self.player_team['full_name']}'s stats are : {self.player_team_stats}")
 
     # Sets lineup after confirmation
@@ -743,8 +743,8 @@ class SimulationScreen(QWidget):
             image_label.setPixmap(scaled_pixmap)
 
         print(f"CPU's Lineup: {self.cpu_lineup}")
-        self.cpu_stats = self.get_clutch_dict(cpu_lineup) if self.use_clutch else self.get_regular_season_dict(cpu_lineup)# Put stats in our own dictionary
-        self.cpu_team_stats = self.get_team_stats_dict(self.cpu_team['full_name'])
+        self.cpu_stats = get_clutch_dict(cpu_lineup) if self.use_clutch else get_regular_season_dict(cpu_lineup)# Put stats in our own dictionary
+        self.cpu_team_stats = get_team_stats_dict(self.cpu_team['full_name'])
         #print(f"{self.cpu_team['full_name']}'s stats are : {self.cpu_team_stats}")
 
     # Updates logo when teams are selected
@@ -822,164 +822,9 @@ class SimulationScreen(QWidget):
         else:
             print("Failed to Load image from URL")
 
-    # Gets clutch stats dictionary of inputted player
-    def get_clutch_dict(self, players_list):
 
-        # pull clutch stats
-        clutch_stats = LeagueDashPlayerClutch(
-        season='2024-25',
-        season_type_all_star='Regular Season',
-        clutch_time='Last 5 Minutes', 
-        ahead_behind='Ahead or Behind', 
-        point_diff=5  # within 5 points
-        )
 
-        # Get Data Frame
-        df = clutch_stats.get_data_frames()[0]
-
-        clutch_dict = {}
-
-        print(f"Team : {players_list}")
-
-        for name in players_list:
-            player_info = players.find_players_by_full_name(name)
-
-            # Error Checking Names
-            if not player_info:
-                print(f"Player {name} not found")
-                continue
-
-            player_id = player_info[0]['id']
-            player_clutch_stats = df[df['PLAYER_ID'] == player_id]
-
-            # Error Checking Stats
-            if player_clutch_stats.empty:
-                print(f"Season stats not found for {name}")
-                continue
-
-            # calculate FG2_PCT
-            #print(player_clutch_stats.iloc[0]['FGA'])
-
-            two_points_attempted = player_clutch_stats.iloc[0]['FGA'] - player_clutch_stats.iloc[0]['FG3A']
-            two_points_made = player_clutch_stats.iloc[0]['FGM'] - player_clutch_stats.iloc[0]['FG3M']
-            two_point_percentage = round(two_points_made / two_points_attempted, 3) if two_points_attempted != 0 else 0 #zero checking
-
-            clutch_dict[name] = {
-                'FG_PCT' : player_clutch_stats.iloc[0]['FG_PCT'],
-                'FG3_PCT' : player_clutch_stats.iloc[0]['FG3_PCT'],
-                'FG2_PCT' : two_point_percentage,
-                'FT_PCT'  : player_clutch_stats.iloc[0]['FT_PCT']
-            
-        }
-            
-        # print(f"{players_list[0]}'s FG_PCT = {clutch_dict[players_list[0]]['FG_PCT']}")
-        # print(f"{players_list[0]}'s FG2_PCT = {clutch_dict[players_list[0]]['FG2_PCT']}")
-        # print(f"{players_list[0]}'s FG3_PCT = {clutch_dict[players_list[0]]['FG3_PCT']}")
-        # print(f"{players_list[0]}'s FT_PCT = {clutch_dict[players_list[0]]['FT_PCT']}")
-        print("CLUTCH")
-        return clutch_dict
-
-    # Gets regular season stats dictionary of inputted player
-    def get_regular_season_dict(self, players_list):
-        # Pull regular season player stats
-        regular_stats = LeagueDashPlayerStats(
-            season='2024-25',
-            season_type_all_star='Regular Season'
-        )
-
-        # Get Data Frame
-        df = regular_stats.get_data_frames()[0]
-
-        player_stats_dict = {}
-
-        print(f"Team : {players_list}")
-
-        for name in players_list:
-            player_info = players.find_players_by_full_name(name)
-
-            # Error Checking Names
-            if not player_info:
-                print(f"Player {name} not found")
-                continue
-
-            player_id = player_info[0]['id']
-            player_season_stats = df[df['PLAYER_ID'] == player_id]
-
-            # Error Checking Stats
-            if player_season_stats.empty:
-                print(f"Season stats not found for {name}")
-                continue
-
-            # calculate FG2_PCT
-            #print(player_season_stats.iloc[0]['FGA'])
-
-            two_points_attempted = player_season_stats.iloc[0]['FGA'] - player_season_stats.iloc[0]['FG3A']
-            two_points_made = player_season_stats.iloc[0]['FGM'] - player_season_stats.iloc[0]['FG3M']
-            two_point_percentage = round(two_points_made / two_points_attempted, 3) if two_points_attempted != 0 else 0 # zero checking
-
-            player_stats_dict[name] = {
-                'FG_PCT' : player_season_stats.iloc[0]['FG_PCT'],
-                'FG3_PCT' : player_season_stats.iloc[0]['FG3_PCT'],
-                'FG2_PCT' : two_point_percentage,
-                'FT_PCT'  : player_season_stats.iloc[0]['FT_PCT']
-            
-        }
-        print("REGULAR")
-        return player_stats_dict
-
-    # Gets team stats dictionary 
-    def get_team_stats_dict(self, team_name):
-        # Define parameters
-        season = '2024-25' 
-        season_type = 'Regular Season'
-
-        # Call the endpoint
-        # try:
-        #     stats = TeamEstimatedMetrics(season=season, season_type=season_type)
-
-        #     # Get the data frame
-        #     df = stats.get_data_frames()[0]
-        # except requests.exceptions.ConnectionError:
-        #     print("❌ Connection error: Check your internet or the NBA API server.")
-        #     return
-        
-        for attempt in range(3):
-            try:
-                stats = TeamEstimatedMetrics(season=season, season_type=season_type)
-                df = stats.get_data_frames()[0]
-                break  # break out of loop if failed
-            except requests.exceptions.ConnectionError:
-                print(f"Attempt {attempt + 1} failed")
-                time.sleep(2)
-        else:
-            print("❌ All retries failed.")
-            df = None
-            return
-
-        # Filter for team
-        team_row = df[df['TEAM_NAME'] == team_name]
-        
-        # Get E_TM_TOV_PCT
-        if not team_row.empty:
-            team_stats_dict = {
-                'TOV_PCT' : team_row.iloc[0]['E_TM_TOV_PCT'],
-                'OREB_PCT' : team_row.iloc[0]['E_OREB_PCT'],
-                'DREB_PCT' : team_row.iloc[0]['E_DREB_PCT'],
-            } 
-            print(f"{team_name} stats {team_stats_dict}")
-            return team_stats_dict
-        elif team_name == "Los Angeles Clippers":
-            team_row = df[df['TEAM_NAME'] == "LA Clippers"]
-
-            team_stats_dict = {
-                'TOV_PCT' : team_row.iloc[0]['E_TM_TOV_PCT'],
-                'OREB_PCT' : team_row.iloc[0]['E_OREB_PCT'],
-                'DREB_PCT' : team_row.iloc[0]['E_DREB_PCT'],
-            } 
-            print(f"LA Clippers stats {team_stats_dict}")
-            return team_stats_dict
-        else:
-            print(f"{team_name} data not found")
+    
 
     # Updates scoreborard
     def update_scoreboard(self):
@@ -1400,37 +1245,6 @@ class SimulationScreen(QWidget):
             return True
         else:  
             return False
-    
-    # def handle_cpu_fouls(self):
-    #     # First Free Throw
-    #     cpu_time = 100
-    #     cpu_fouled_player = random.choice(self.player_lineup)
-    #     cpu_fouled_player_stats = self.player_stats[cpu_fouled_player]
-
-    #     if self.game_info.shot_clock >= self.game_info.game_clock and self.game_info.player_score > self.game_info.cpu_score:  # CPU down with shot clock off
-    #         if self.game_info.shot_clock > 15:
-    #             cpu_time = random.randint(3, 13)
-    #         else: 
-    #             cpu_time = random.randint(1, self.game_info.shot_clock)
-
-
-    #     if random.random() < cpu_fouled_player_stats['FT_PCT']:
-    #         points = 1
-    #         self.log_play(f"{cpu_fouled_player} makes free throw 1 of 2")
-    #         self.game_info.cpu_score += points
-    #         self.update_scoreboard()
-    #     else:
-    #         self.log_play(f"{cpu_fouled_player} misses free throw 1 of 2")
-        
-    #     # Second free throw
-    #     if random.random() < cpu_fouled_player_stats['FT_PCT']:
-    #         make = True
-    #         points = 1
-    #         self.log_play(f"{cpu_fouled_player} makes free throw 2 of 2")
-    #         self.game_info.cpu_score += points 
-    #     else:
-    #         self.log_play(f"{cpu_fouled_player} misses free throw 2 of 2")
-    #         make = False
         
             
     # Called when game is over to disable buttons and update game log and scoreboard
@@ -1474,18 +1288,6 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.start_screen)  # Index 0 (start)
         self.stacked_widget.addWidget(self.simulation_screen)  # Index 1 (sim)
 
-# Gets team id from abbreviation using nba_api
-def get_team_id_from_abbreviation(abbreviation):
-        # Fetch the list of all NBA teams
-        all_teams = teams.get_teams()
-        
-        # Search for the team with the given abbreviation
-        for team in all_teams:
-            if team['abbreviation'] == abbreviation:
-                return team['id']
-        
-        # Return None if no match is found
-        return None
 
 
 if __name__ == "__main__":
