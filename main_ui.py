@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QGridLayout, QWidget, QLabel, QStackedWidget, QComboBox, QVBoxLayout, QSpinBox, QMessageBox, QHBoxLayout, QTextEdit, QLineEdit, QCheckBox
 from PyQt6.QtGui import QFont, QPixmap, QPainter, QIntValidator, QValidator, QFontDatabase, QFont 
 from PyQt6.QtCore import Qt, QByteArray
-from nba_api.stats.endpoints import TeamEstimatedMetrics, teamgamelog, boxscoretraditionalv2, LeagueDashPlayerClutch, LeagueDashPlayerStats
+from nba_api.stats.endpoints import TeamEstimatedMetrics, teamgamelog, boxscoretraditionalv2, boxscoretraditionalv3, LeagueDashPlayerClutch, LeagueDashPlayerStats
 from nba_api.stats.static import players, teams
 from nba_api.stats.endpoints import commonteamroster
 import pandas as pd
@@ -248,7 +248,7 @@ class LineupSelectionWindow(QWidget):
         self.set_label("PG", 4)
 
         # Get team roster
-        roster = commonteamroster.CommonTeamRoster(team_id=player_team_id)
+        roster = commonteamroster.CommonTeamRoster(team_id=player_team_id, season='2024-25')
         df = roster.get_data_frames()[0]
         self.player_names = list(df['PLAYER'])
 
