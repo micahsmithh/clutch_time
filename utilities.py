@@ -176,3 +176,30 @@ def get_regular_season_dict(players_list):
     }
     print("REGULAR")
     return player_stats_dict
+
+
+def request_data(url):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Referer": "https://www.nba.com/",
+        "Origin": "https://www.nba.com",
+        "Accept": "application/json, text/plain, */*"
+    }
+
+    print("Requesting...")
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code != 200:
+        print(f"Request failed: {response.status_code}")
+        print(response.text)
+        return None
+    else:
+        try:
+            data = response.json()
+            print("JSON parsed successfully.")
+            return data
+        except Exception as e:
+            print("Failed to parse JSON.")
+            print(response.text)
+            return None

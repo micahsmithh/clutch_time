@@ -1,6 +1,33 @@
 from nba_api.stats.endpoints import boxscoretraditionalv2, boxscoretraditionalv3, teamgamelog
 from nba_api.stats.static import players, teams
 import pandas as pd
+import requests
+
+def request_data(url):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Referer": "https://www.nba.com/",
+        "Origin": "https://www.nba.com",
+        "Accept": "application/json, text/plain, */*"
+    }
+
+    print("Requesting...")
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code != 200:
+        print(f"Request failed: {response.status_code}")
+        print(response.text)
+        return None
+    else:
+        try:
+            data = response.json()
+            print("JSON parsed successfully.")
+            return data
+        except Exception as e:
+            print("Failed to parse JSON.")
+            print(response.text)
+            return None
 
 
 
@@ -34,25 +61,34 @@ def get_starters(team_id):
             
             # Fetch the box score for the current game
             boxscore = boxscoretraditionalv3.BoxScoreTraditionalV3(game_id=game_id)
-
-            # Get player stats DataFrame
-            player_df = boxscore.player_stats.get_data_frame()
-            team_sb_df = boxscore.team_starter_bench_stats.get_data_frame()
-            print("Box Score")
-            print(team_sb_df.head())  # Display the first few rows of player stats for debugging
             
 
-            # Filter players to be only starters from selected team
-            team_starters = player_stats[
-                (player_df['teamTricode'] == team) &
-                (player_df['startersBench'] == 'Starter')
-            ]
+            boxscore_data = request_data(f"https://cdn.nba.com/static/json/liveData/boxscore/boxscore_{game_id}.json")
+            
+            home_tricode = boxscore_data["game"]["homeTeam"]["teamTricode"]
+            
+            # Check teamm
+            if home_tricode == team:
+                which_team = "homeTeam"
+            else:
+                which_team = "awayTeam"
 
-            # Once team starters are found: display (For games at end of season, often no starters are listed since many players are resting)
-            if not team_starters.empty:
+            # Get starters
+            team_starters = [ 
+                    player for player in boxscore_data["game"][which_team]["players"] if player["starter"] == "1"
+                ]
+
+            starters_list = [player['name'] for player in team_starters]
+
+
+            print(starters_list)
+
+            if starters_list:
                 print(f"Found starters for Game ID: {game_id}")
-                print(team_starters[['PLAYER_NAME', 'START_POSITION']])
-                return team_starters['PLAYER_NAME'].tolist()  # exit loops when starters are found
+                for player in team_starters:
+                    print(player['name'], player['position'])
+                return starters_list
+
         else:
             print(f"No valid starters found in the recent games for {team}.")
             return
@@ -67,6 +103,8 @@ nba_teams = teams.get_teams()
 # Map team abreviation to team ID
 team_id_map = {team['abbreviation']: team['id'] for team in nba_teams} 
 
-print(team_id_map['CLE'])
+#print(team_id_map['CLE'])
 
-get_starters(team_id_map['CLE'])
+starters = get_starters(team_id_map['CLE'])
+
+print(starters)

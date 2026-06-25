@@ -1,9 +1,10 @@
 from PyQt6.QtWidgets import QApplication, QWidget, QGridLayout, QLabel, QComboBox, QPushButton, QMessageBox,QVBoxLayout, QSpinBox, QCheckBox
 from PyQt6.QtGui import QFont, QPixmap
-from nba_api.stats.endpoints import commonteamroster, teamgamelog, boxscoretraditionalv2
+from nba_api.stats.endpoints import commonteamroster, teamgamelog
 from nba_api.stats.static import teams
 import pandas as pd
 from PyQt6.QtCore import Qt
+from utilities import request_data  
 
 
 
@@ -317,32 +318,85 @@ class LineupSelectionWindow(QWidget):
         games_combined['GAME_DATE'] = pd.to_datetime(games_combined['GAME_DATE'])  # first ahave to convert to datatime format
         games_combined_sorted = games_combined.sort_values(by='GAME_DATE', ascending=False)
 
-        # Get most recent game
-        if not games_combined_sorted.empty:
-            for _, game in games_combined_sorted.iterrows():
-                game_id = game['Game_ID']
-                print(f"Checking Game ID: {game_id}")
+
+        for game in games_combined_sorted.itertuples():
+            game_id = game.Game_ID
+            print(f"Checking Game ID: {game_id}")
+
+            # Try to request game info
+            try:
+                boxscore_data = request_data(f"https://cdn.nba.com/static/json/liveData/boxscore/boxscore_{game_id}.json")
+            except Exception as e:
+                print(f"Failed request for {game_id}: {e}")
+                continue
+            
+            # Use get so program does not crash if missing
+            game_data = boxscore_data.get("game", {})
+
+            # Get home team name
+            home_tricode = game_data.get("homeTeam", {}).get("teamTricode", {})
+
+            # Select team
+            which_team = "homeTeam" if home_tricode == team else "awayTeam"
+
+            # Select players
+            players = game_data.get(which_team, {}).get("players", [])
+
+            # Select starters
+            team_starters = [ 
+                p for p in players if str(p.get("starter")) == "1" # Use str() for safety
+            ]
+
+            # Continue to next game if not starters listed
+            if not team_starters:
+                continue
+
+            starters_list = [p.get("name") for p in team_starters]
+
+            print(f"Found starters for Game ID: {game_id}")
+            for player in team_starters:
+                print(player['name'], player['position'])
+
+            return starters_list
+            
+        print(f"No valid starters found in the recent games for {team}.")
+        return
+
+
+
+
+
+
+        # # Get most recent game
+        # if not games_combined_sorted.empty:
+        #     for _, game in games_combined_sorted.iterrows():            
                 
-                # Fetch the box score for the current game
-                boxscore = boxscoretraditionalv2.BoxScoreTraditionalV2(game_id=game_id)
+        #         home_tricode = boxscore_data["game"]["homeTeam"]["teamTricode"]
+                
+        #         # Check teamm
+        #         if home_tricode == team:
+        #             which_team = "homeTeam"
+        #         else:
+        #             which_team = "awayTeam"
 
-                # Get player stats DataFrame
-                player_stats = boxscore.get_data_frames()[0]
+        #         # Get starters
+        #         team_starters = [ 
+        #                 player for player in boxscore_data["game"][which_team]["players"] if player["starter"] == "1"
+        #             ]
 
-                # Filter players to be only starters from selected team
-                team_starters = player_stats[
-                    (player_stats['TEAM_ABBREVIATION'] == team) &
-                    (player_stats['START_POSITION'].isin(['G', 'F', 'C']))
-                ]
+        #         starters_list = [player['name'] for player in team_starters]
 
-                # Once team starters are found: display
-                if not team_starters.empty:
-                    print(f"Found starters for Game ID: {game_id}")
-                    print(team_starters[['PLAYER_NAME', 'START_POSITION']])
-                    return team_starters['PLAYER_NAME'].tolist()  # exit loops when starters are found
-            else:
-                print(f"No valid starters found in the recent games for {team}.")
-                return
-        else:
-            print(f"No games found for {team}.")
-            return
+        #         print(starters_list)
+
+        #         if starters_list:
+        #             print(f"Found starters for Game ID: {game_id}")
+        #             for player in team_starters:
+        #                 print(player['name'], player['position'])
+        #             return starters_list
+
+        #     else:
+        #         print(f"No valid starters found in the recent games for {team}.")
+        #         return
+        # else:
+        #     print(f"No games found for {team}.")
+        #     return
